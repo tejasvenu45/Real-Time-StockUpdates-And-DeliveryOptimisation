@@ -223,6 +223,7 @@ class DatabaseManager:
         import decimal
         import enum
         from datetime import datetime
+        from bson import ObjectId
         
         def serialize_value(value):
             if isinstance(value, decimal.Decimal):
@@ -231,6 +232,8 @@ class DatabaseManager:
                 return value.value
             elif isinstance(value, datetime):
                 return value
+            elif isinstance(value, ObjectId):
+                return value  # Keep ObjectId as-is for MongoDB storage
             elif isinstance(value, dict):
                 return {k: serialize_value(v) for k, v in value.items()}
             elif isinstance(value, list):

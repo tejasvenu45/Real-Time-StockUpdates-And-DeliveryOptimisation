@@ -23,9 +23,12 @@ def serialize_for_json(obj):
     """Helper function to serialize objects for JSON response"""
     from datetime import datetime
     from decimal import Decimal
+    from bson import ObjectId
     import enum
     
-    if isinstance(obj, datetime):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, datetime):
         return obj.isoformat()
     elif isinstance(obj, Decimal):
         return float(obj)
