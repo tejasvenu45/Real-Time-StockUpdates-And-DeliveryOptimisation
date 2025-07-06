@@ -11,6 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
 
+
+from dotenv import load_dotenv
+load_dotenv()
+print(f"🔑 GEMINI_API_KEY loaded: {'✅ YES' if os.getenv('GEMINI_API_KEY') else '❌ NO'}")
+
 # Add parent directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 

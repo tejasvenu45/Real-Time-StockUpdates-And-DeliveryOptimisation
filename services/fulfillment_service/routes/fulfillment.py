@@ -353,3 +353,272 @@ async def get_ai_performance_metrics(
     except Exception as e:
         logger.error(f"Error retrieving AI performance metrics: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve AI performance metrics")
+
+# =============================================================================
+# MANUAL STOCK REQUEST ENDPOINTS
+# =============================================================================
+
+@router.post("/requests/manual")
+async def create_manual_stock_request(
+    request_data: Dict[str, Any] = Body(...),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Create manual stock request from store"""
+    try:
+        request_id = await service.create_manual_stock_request(request_data)
+        return {
+            "success": True,
+            "message": "Manual stock request created successfully",
+            "data": {"request_id": request_id},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating manual stock request: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create manual stock request")
+
+@router.get("/requests/manual")
+async def get_manual_stock_requests(
+    store_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Get manual stock requests with filtering"""
+    try:
+        requests = await service.get_manual_stock_requests(
+            store_id=store_id,
+            status=status,
+            page=page,
+            size=size
+        )
+        total = await service.count_manual_stock_requests(store_id=store_id, status=status)
+        
+        return {
+            "success": True,
+            "message": "Manual stock requests retrieved successfully",
+            "data": {
+                "items": serialize_for_json(requests),
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving manual stock requests: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve manual stock requests")
+
+# =============================================================================
+# VEHICLE MANAGEMENT ENDPOINTS
+# =============================================================================
+
+@router.post("/vehicles")
+async def create_vehicle(
+    vehicle_data: Dict[str, Any] = Body(...),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Create a new vehicle"""
+    try:
+        vehicle_id = await service.create_vehicle(vehicle_data)
+        return {
+            "success": True,
+            "message": "Vehicle created successfully",
+            "data": {"vehicle_id": vehicle_id},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating vehicle: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create vehicle")
+
+@router.get("/vehicles")
+async def get_vehicles(
+    status: Optional[str] = Query(None),
+    vehicle_type: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Get vehicles with filtering"""
+    try:
+        vehicles = await service.get_vehicles(
+            status=status,
+            vehicle_type=vehicle_type,
+            page=page,
+            size=size
+        )
+        total = await service.count_vehicles(status=status, vehicle_type=vehicle_type)
+        
+        return {
+            "success": True,
+            "message": "Vehicles retrieved successfully",
+            "data": {
+                "items": serialize_for_json(vehicles),
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving vehicles: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve vehicles")
+
+@router.get("/vehicles/{vehicle_id}")
+async def get_vehicle(
+    vehicle_id: str,
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Get specific vehicle by ID"""
+    try:
+        vehicle = await service.get_vehicle(vehicle_id)
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        return {
+            "success": True,
+            "message": "Vehicle retrieved successfully",
+            "data": serialize_for_json(vehicle),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving vehicle {vehicle_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve vehicle")
+
+@router.put("/vehicles/{vehicle_id}")
+async def update_vehicle(
+    vehicle_id: str,
+    vehicle_data: Dict[str, Any] = Body(...),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Update vehicle information"""
+    try:
+        success = await service.update_vehicle(vehicle_id, vehicle_data)
+        if not success:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        return {
+            "success": True,
+            "message": "Vehicle updated successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating vehicle {vehicle_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update vehicle")
+
+@router.delete("/vehicles/{vehicle_id}")
+async def delete_vehicle(
+    vehicle_id: str,
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Delete a vehicle"""
+    try:
+        success = await service.delete_vehicle(vehicle_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        return {
+            "success": True,
+            "message": "Vehicle deleted successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting vehicle {vehicle_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete vehicle")
+
+# =============================================================================
+# AI DELIVERY OPTIMIZATION ENDPOINTS
+# =============================================================================
+
+@router.get("/optimization/delivery-recommendations")
+async def get_delivery_recommendations(
+    include_manual_requests: bool = Query(True),
+    include_auto_requests: bool = Query(True),
+    max_distance_km: float = Query(100.0, ge=1.0),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Get AI-powered delivery recommendations"""
+    try:
+        recommendations = await service.get_ai_delivery_recommendations(
+            include_manual_requests=include_manual_requests,
+            include_auto_requests=include_auto_requests,
+            max_distance_km=max_distance_km
+        )
+        
+        return {
+            "success": True,
+            "message": "AI delivery recommendations generated successfully",
+            "data": serialize_for_json(recommendations),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error generating delivery recommendations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate delivery recommendations")
+
+@router.post("/fulfillment/execute-delivery")
+async def execute_delivery_plan(
+    delivery_plan: Dict[str, Any] = Body(...),
+    warehouse_manager: str = Body(..., embed=True),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Execute delivery plan based on warehouse manager decision"""
+    try:
+        execution_result = await service.execute_delivery_plan(delivery_plan, warehouse_manager)
+        
+        return {
+            "success": True,
+            "message": "Delivery plan executed successfully",
+            "data": serialize_for_json(execution_result),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error executing delivery plan: {e}")
+        raise HTTPException(status_code=500, detail="Failed to execute delivery plan")
+
+@router.get("/delivery-plans")
+async def get_delivery_plans(
+    status: Optional[str] = Query(None),
+    vehicle_id: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    service: FulfillmentService = Depends(get_fulfillment_service)
+):
+    """Get delivery plans with filtering"""
+    try:
+        plans = await service.get_delivery_plans(
+            status=status,
+            vehicle_id=vehicle_id,
+            page=page,
+            size=size
+        )
+        total = await service.count_delivery_plans(status=status, vehicle_id=vehicle_id)
+        
+        return {
+            "success": True,
+            "message": "Delivery plans retrieved successfully",
+            "data": {
+                "items": serialize_for_json(plans),
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving delivery plans: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve delivery plans")

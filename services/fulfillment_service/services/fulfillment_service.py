@@ -604,3 +604,583 @@ class FulfillmentService:
     async def get_ai_performance_metrics(self, days: int) -> Dict:
         """Get AI performance metrics (placeholder)"""
         return {"ai_metrics": "placeholder"}
+    
+    # =============================================================================
+    # MANUAL STOCK REQUEST MANAGEMENT
+    # =============================================================================
+    
+    async def create_manual_stock_request(self, request_data: Dict[str, Any]) -> str:
+        """Create manual stock request from store"""
+        # Validate required fields
+        required_fields = ["store_id", "product_id", "requested_quantity", "requested_by", "reason"]
+        for field in required_fields:
+            if field not in request_data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Validate store exists
+        store = await self.db.find_one("stores", {"store_id": request_data["store_id"]})
+        if not store:
+            raise ValueError(f"Store {request_data['store_id']} not found")
+        
+        # Validate product exists in warehouse
+        warehouse_item = await self.db.find_one("warehouse_inventory", {"product_id": request_data["product_id"]})
+        if not warehouse_item:
+            raise ValueError(f"Product {request_data['product_id']} not available in warehouse")
+        
+        # Check if sufficient stock available
+        available_stock = warehouse_item.get("available_stock", 0)
+        if available_stock < request_data["requested_quantity"]:
+            raise ValueError(f"Insufficient warehouse stock. Available: {available_stock}, Requested: {request_data['requested_quantity']}")
+        
+        # Generate request ID
+        request_id = f"MAN_{uuid.uuid4().hex[:8].upper()}"
+        
+        # Create manual request document
+        manual_request = {
+            "request_id": request_id,
+            "store_id": request_data["store_id"],
+            "product_id": request_data["product_id"],
+            "requested_quantity": request_data["requested_quantity"],
+            "priority": request_data.get("priority", "medium"),
+            "reason": request_data["reason"],
+            "status": "pending",
+            "requested_by": request_data["requested_by"],
+            "urgency_level": request_data.get("urgency_level", "normal"),
+            "preferred_delivery_window": request_data.get("preferred_delivery_window"),
+            "notes": request_data.get("notes"),
+            "created_at": datetime.utcnow()
+        }
+        
+        # Insert into database
+        await self.db.insert_one("manual_stock_requests", manual_request)
+        
+        logger.info(f"Created manual stock request: {request_id}")
+        return request_id
+    
+    async def get_manual_stock_requests(self, store_id: Optional[str] = None,
+                                      status: Optional[str] = None,
+                                      page: int = 1, size: int = 20) -> List[Dict]:
+        """Get manual stock requests with filtering"""
+        filter_dict = {}
+        if store_id:
+            filter_dict["store_id"] = store_id
+        if status:
+            filter_dict["status"] = status
+        
+        skip = (page - 1) * size
+        sort = [("created_at", -1)]
+        
+        try:
+            requests = await self.db.find_many("manual_stock_requests", filter_dict, limit=size, sort=sort, skip=skip)
+            # Convert ObjectId for serialization
+            for request in requests:
+                if '_id' in request:
+                    request['_id'] = str(request['_id'])
+            return requests
+        except Exception as e:
+            logger.error(f"Error retrieving manual stock requests: {e}")
+            return []
+    
+    async def count_manual_stock_requests(self, store_id: Optional[str] = None,
+                                        status: Optional[str] = None) -> int:
+        """Count manual stock requests"""
+        filter_dict = {}
+        if store_id:
+            filter_dict["store_id"] = store_id
+        if status:
+            filter_dict["status"] = status
+        
+        try:
+            return await self.db.count_documents("manual_stock_requests", filter_dict)
+        except Exception as e:
+            logger.error(f"Error counting manual stock requests: {e}")
+            return 0
+    
+    # =============================================================================
+    # VEHICLE MANAGEMENT
+    # =============================================================================
+    
+    async def create_vehicle(self, vehicle_data: Dict[str, Any]) -> str:
+        """Create a new vehicle"""
+        # Validate required fields
+        required_fields = ["vehicle_id", "license_plate", "vehicle_type", "max_weight_capacity", "max_volume_capacity"]
+        for field in required_fields:
+            if field not in vehicle_data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Check if vehicle already exists
+        existing = await self.db.find_one("vehicles", {"vehicle_id": vehicle_data["vehicle_id"]})
+        if existing:
+            raise ValueError(f"Vehicle with ID {vehicle_data['vehicle_id']} already exists")
+        
+        # Create vehicle document
+        vehicle_doc = {
+            **vehicle_data,
+            "status": vehicle_data.get("status", "available"),
+            "current_weight": 0,
+            "current_volume": 0,
+            "created_at": datetime.utcnow()
+        }
+        
+        # Insert into database
+        await self.db.insert_one("vehicles", vehicle_doc)
+        
+        logger.info(f"Created vehicle: {vehicle_data['vehicle_id']}")
+        return vehicle_data["vehicle_id"]
+    
+    async def get_vehicles(self, status: Optional[str] = None,
+                          vehicle_type: Optional[str] = None,
+                          page: int = 1, size: int = 20) -> List[Dict]:
+        """Get vehicles with filtering"""
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if vehicle_type:
+            filter_dict["vehicle_type"] = vehicle_type
+        
+        skip = (page - 1) * size
+        sort = [("created_at", -1)]
+        
+        try:
+            vehicles = await self.db.find_many("vehicles", filter_dict, limit=size, sort=sort, skip=skip)
+            # Convert ObjectId for serialization
+            for vehicle in vehicles:
+                if '_id' in vehicle:
+                    vehicle['_id'] = str(vehicle['_id'])
+            return vehicles
+        except Exception as e:
+            logger.error(f"Error retrieving vehicles: {e}")
+            return []
+    
+    async def get_vehicle(self, vehicle_id: str) -> Optional[Dict]:
+        """Get specific vehicle by ID"""
+        try:
+            vehicle = await self.db.find_one("vehicles", {"vehicle_id": vehicle_id})
+            if vehicle and '_id' in vehicle:
+                vehicle['_id'] = str(vehicle['_id'])
+            return vehicle
+        except Exception as e:
+            logger.error(f"Error retrieving vehicle {vehicle_id}: {e}")
+            return None
+    
+    async def update_vehicle(self, vehicle_id: str, vehicle_data: Dict[str, Any]) -> bool:
+        """Update vehicle information"""
+        try:
+            vehicle_data["updated_at"] = datetime.utcnow()
+            return await self.db.update_one("vehicles", {"vehicle_id": vehicle_id}, vehicle_data)
+        except Exception as e:
+            logger.error(f"Error updating vehicle {vehicle_id}: {e}")
+            return False
+    
+    async def delete_vehicle(self, vehicle_id: str) -> bool:
+        """Delete a vehicle"""
+        try:
+            return await self.db.delete_one("vehicles", {"vehicle_id": vehicle_id})
+        except Exception as e:
+            logger.error(f"Error deleting vehicle {vehicle_id}: {e}")
+            return False
+    
+    async def count_vehicles(self, status: Optional[str] = None,
+                           vehicle_type: Optional[str] = None) -> int:
+        """Count vehicles"""
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if vehicle_type:
+            filter_dict["vehicle_type"] = vehicle_type
+        
+        try:
+            return await self.db.count_documents("vehicles", filter_dict)
+        except Exception as e:
+            logger.error(f"Error counting vehicles: {e}")
+            return 0
+    
+    # =============================================================================
+    # AI DELIVERY OPTIMIZATION
+    # =============================================================================
+    
+    async def get_ai_delivery_recommendations(self, include_manual_requests: bool = True,
+                                            include_auto_requests: bool = True,
+                                            max_distance_km: float = 100.0) -> Dict[str, Any]:
+        """Get AI-powered delivery recommendations"""
+        try:
+            # Gather all pending requests
+            all_requests = []
+            
+            if include_manual_requests:
+                manual_requests = await self.db.find_many("manual_stock_requests", {"status": "pending"})
+                for req in manual_requests:
+                    req["request_type"] = "manual"
+                all_requests.extend(manual_requests)
+            
+            if include_auto_requests:
+                auto_requests = await self.db.find_many("fulfillment_requests", {"status": "pending"})
+                for req in auto_requests:
+                    req["request_type"] = "automatic"
+                all_requests.extend(auto_requests)
+            
+            if not all_requests:
+                return {
+                    "recommendations": [],
+                    "message": "No pending requests found",
+                    "ai_reasoning": "No delivery optimization needed - no pending requests"
+                }
+            
+            # Get context data for AI
+            context_data = await self._gather_delivery_context(all_requests, max_distance_km)
+            
+            # Generate AI recommendations
+            if self.llm_available:
+                ai_recommendations = await self._generate_ai_delivery_recommendations(all_requests, context_data)
+            else:
+                ai_recommendations = await self._fallback_delivery_recommendations(all_requests, context_data)
+            
+            return ai_recommendations
+            
+        except Exception as e:
+            logger.error(f"Error generating AI delivery recommendations: {e}")
+            return {
+                "recommendations": [],
+                "message": "Error generating recommendations",
+                "ai_reasoning": f"Failed to generate recommendations: {str(e)}"
+            }
+    
+    async def _gather_delivery_context(self, requests: List[Dict], max_distance_km: float) -> Dict[str, Any]:
+        """Gather context data for AI delivery optimization"""
+        # Get all unique store IDs
+        store_ids = list(set(req["store_id"] for req in requests))
+        
+        # Get store information with locations
+        stores = []
+        for store_id in store_ids:
+            store = await self.db.find_one("stores", {"store_id": store_id})
+            if store:
+                stores.append(store)
+        
+        # Get all unique product IDs
+        product_ids = list(set(req["product_id"] for req in requests))
+        
+        # Get product information with dimensions
+        products = []
+        for product_id in product_ids:
+            product = await self.db.find_one("products", {"product_id": product_id})
+            if product:
+                products.append(product)
+        
+        # Get available vehicles
+        vehicles = await self.db.find_many("vehicles", {"status": "available"})
+        
+        # Calculate store distances from warehouse (simplified - assuming warehouse at 0,0)
+        warehouse_location = {"latitude": 40.7128, "longitude": -74.0060}  # Example warehouse location
+        store_distances = {}
+        
+        for store in stores:
+            if store.get("address") and store["address"].get("coordinates"):
+                coords = store["address"]["coordinates"]
+                distance = self._calculate_distance(
+                    warehouse_location["latitude"], warehouse_location["longitude"],
+                    coords["latitude"], coords["longitude"]
+                )
+                store_distances[store["store_id"]] = distance
+            else:
+                store_distances[store["store_id"]] = 50.0  # Default distance
+        
+        return {
+            "stores": stores,
+            "products": products,
+            "vehicles": vehicles,
+            "store_distances": store_distances,
+            "warehouse_location": warehouse_location,
+            "max_distance_km": max_distance_km
+        }
+    
+    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate distance between two points using Haversine formula"""
+        import math
+        
+        # Convert latitude and longitude to radians
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        
+        # Radius of earth in kilometers
+        r = 6371
+        
+        return c * r
+    
+    async def _generate_ai_delivery_recommendations(self, requests: List[Dict], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate AI delivery recommendations using Gemini"""
+        try:
+            # Create comprehensive AI prompt
+            prompt = self._create_delivery_optimization_prompt(requests, context)
+            
+            # Call LLM
+            response = await self.call_llm_async(prompt)
+            
+            # Parse AI response
+            recommendations = self._parse_ai_delivery_response(response, context)
+            
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"AI delivery recommendation failed: {e}")
+            return await self._fallback_delivery_recommendations(requests, context)
+    
+    def _create_delivery_optimization_prompt(self, requests: List[Dict], context: Dict[str, Any]) -> str:
+        """Create comprehensive prompt for AI delivery optimization"""
+        
+        # Format requests
+        request_summary = []
+        for req in requests:
+            product_info = next((p for p in context["products"] if p["product_id"] == req["product_id"]), {})
+            store_distance = context["store_distances"].get(req["store_id"], "unknown")
+            
+            request_summary.append(f"""
+            - Store: {req['store_id']} (Distance: {store_distance:.1f}km)
+            - Product: {req['product_id']} ({product_info.get('name', 'Unknown')})
+            - Quantity: {req['requested_quantity']}
+            - Priority: {req.get('priority', 'medium')}
+            - Type: {req.get('request_type', 'unknown')}
+            - Product Weight: {product_info.get('weight', 'unknown')}kg each
+            - Product Dimensions: {product_info.get('dimensions', 'unknown')}
+            """)
+        
+        # Format vehicles
+        vehicle_summary = []
+        for vehicle in context["vehicles"]:
+            vehicle_summary.append(f"""
+            - {vehicle['vehicle_id']}: {vehicle['vehicle_type'].title()}
+              * License: {vehicle['license_plate']}
+              * Weight Capacity: {vehicle['max_weight_capacity']}kg
+              * Volume Capacity: {vehicle['max_volume_capacity']}m³
+              * Status: {vehicle['status']}
+            """)
+        
+        prompt = f"""
+        You are an expert warehouse delivery optimization manager. Your job is to create the most efficient delivery plan.
+
+        PENDING DELIVERY REQUESTS:
+        {chr(10).join(request_summary)}
+
+        AVAILABLE VEHICLES:
+        {chr(10).join(vehicle_summary)}
+
+        OPTIMIZATION CONSTRAINTS:
+        - Maximum delivery distance: {context['max_distance_km']}km
+        - Must consider vehicle weight and volume capacity
+        - Prioritize urgent/critical requests
+        - Group nearby stores when possible (within 20km of each other)
+        - Minimize total number of trips
+
+        PROVIDE RECOMMENDATIONS IN THIS FORMAT:
+        
+        **RECOMMENDED DELIVERY PLAN:**
+        
+        **Trip 1 - Vehicle: [VEHICLE_ID]**
+        - Route: Warehouse → Store A → Store B → Warehouse
+        - Products:
+          * Store A: Product X (qty) + Product Y (qty)
+          * Store B: Product Z (qty)
+        - Estimated Load: [weight]kg, [volume]m³
+        - Total Distance: [distance]km
+        - Reasoning: [Why this grouping makes sense]
+        
+        **Trip 2 - Vehicle: [VEHICLE_ID]**
+        [Same format...]
+        
+        **OVERALL STRATEGY:**
+        [Explain your optimization strategy and key decisions]
+        
+        **EFFICIENCY BENEFITS:**
+        [Explain cost/time savings achieved]
+
+        Focus on practical, efficient solutions that a warehouse manager can easily understand and execute.
+        """
+        
+        return prompt
+    
+    def _parse_ai_delivery_response(self, response: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse AI delivery response into structured format"""
+        try:
+            return {
+                "recommendations": [
+                    {
+                        "recommendation_id": f"AI_REC_{uuid.uuid4().hex[:8].upper()}",
+                        "ai_response": response,
+                        "generated_at": datetime.utcnow().isoformat(),
+                        "confidence": "high",
+                        "context_used": {
+                            "total_requests": len(context.get("stores", [])),
+                            "available_vehicles": len(context.get("vehicles", [])),
+                            "max_distance": context.get("max_distance_km", 0)
+                        }
+                    }
+                ],
+                "ai_reasoning": response,
+                "status": "success",
+                "recommendation_type": "ai_generated"
+            }
+        except Exception as e:
+            logger.error(f"Error parsing AI delivery response: {e}")
+            return {
+                "recommendations": [],
+                "ai_reasoning": f"Error parsing AI response: {str(e)}",
+                "status": "error"
+            }
+    
+    async def _fallback_delivery_recommendations(self, requests: List[Dict], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback delivery recommendations when AI is unavailable"""
+        try:
+            fallback_message = f"""
+            **BASIC DELIVERY RECOMMENDATIONS** (AI unavailable)
+            
+            Found {len(requests)} pending requests across {len(set(req['store_id'] for req in requests))} stores.
+            
+            **SUGGESTED APPROACH:**
+            1. Process high priority requests first
+            2. Group requests by store proximity
+            3. Use largest available vehicle for efficiency
+            4. Plan single delivery per store to minimize complexity
+            
+            **NEXT STEPS:**
+            1. Review individual requests manually
+            2. Select appropriate vehicle from {len(context.get('vehicles', []))} available vehicles
+            3. Plan delivery route based on store locations
+            4. Execute delivery plan through the system
+            
+            **MANUAL OPTIMIZATION RECOMMENDED:** 
+            Consider using AI recommendations when system is available for better optimization.
+            """
+            
+            return {
+                "recommendations": [
+                    {
+                        "recommendation_id": f"FALLBACK_{uuid.uuid4().hex[:8].upper()}",
+                        "ai_response": fallback_message,
+                        "generated_at": datetime.utcnow().isoformat(),
+                        "confidence": "low",
+                        "context_used": {
+                            "total_requests": len(requests),
+                            "available_vehicles": len(context.get("vehicles", [])),
+                            "fallback_reason": "AI service unavailable"
+                        }
+                    }
+                ],
+                "ai_reasoning": fallback_message,
+                "status": "fallback",
+                "recommendation_type": "basic_fallback"
+            }
+        except Exception as e:
+            logger.error(f"Error generating fallback recommendations: {e}")
+            return {
+                "recommendations": [],
+                "ai_reasoning": f"System error: {str(e)}",
+                "status": "error"
+            }
+    
+    async def execute_delivery_plan(self, delivery_plan: Dict[str, Any], warehouse_manager: str) -> Dict[str, Any]:
+        """Execute delivery plan based on warehouse manager decision"""
+        try:
+            # Generate plan ID
+            plan_id = f"PLAN_{uuid.uuid4().hex[:8].upper()}"
+            
+            # Create delivery plan document
+            plan_doc = {
+                "plan_id": plan_id,
+                "vehicle_id": delivery_plan.get("vehicle_id"),
+                "store_destinations": delivery_plan.get("store_destinations", []),
+                "product_items": delivery_plan.get("product_items", []),
+                "estimated_total_weight": delivery_plan.get("estimated_total_weight", 0),
+                "estimated_total_volume": delivery_plan.get("estimated_total_volume", 0),
+                "estimated_distance_km": delivery_plan.get("estimated_distance_km", 0),
+                "ai_reasoning": delivery_plan.get("ai_reasoning", "Manual delivery plan"),
+                "status": "approved",
+                "created_by_ai": delivery_plan.get("created_by_ai", False),
+                "approved_by": warehouse_manager,
+                "execution_notes": delivery_plan.get("execution_notes"),
+                "created_at": datetime.utcnow()
+            }
+            
+            # Save delivery plan
+            await self.db.insert_one("delivery_plans", plan_doc)
+            
+            # Update vehicle status
+            if delivery_plan.get("vehicle_id"):
+                await self.db.update_one(
+                    "vehicles", 
+                    {"vehicle_id": delivery_plan["vehicle_id"]}, 
+                    {"status": "loading", "updated_at": datetime.utcnow()}
+                )
+            
+            # Update request statuses
+            for item in delivery_plan.get("product_items", []):
+                if "request_id" in item:
+                    await self.db.update_one(
+                        "manual_stock_requests",
+                        {"request_id": item["request_id"]},
+                        {"status": "approved", "updated_at": datetime.utcnow()}
+                    )
+                    await self.db.update_one(
+                        "fulfillment_requests",
+                        {"request_id": item["request_id"]},
+                        {"status": "approved", "updated_at": datetime.utcnow()}
+                    )
+            
+            logger.info(f"Executed delivery plan: {plan_id} by {warehouse_manager}")
+            
+            return {
+                "plan_id": plan_id,
+                "status": "executed",
+                "approved_by": warehouse_manager,
+                "execution_time": datetime.utcnow().isoformat(),
+                "vehicle_assigned": delivery_plan.get("vehicle_id"),
+                "stores_count": len(delivery_plan.get("store_destinations", [])),
+                "products_count": len(delivery_plan.get("product_items", []))
+            }
+            
+        except Exception as e:
+            logger.error(f"Error executing delivery plan: {e}")
+            raise
+    
+    async def get_delivery_plans(self, status: Optional[str] = None,
+                                vehicle_id: Optional[str] = None,
+                                page: int = 1, size: int = 20) -> List[Dict]:
+        """Get delivery plans with filtering"""
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if vehicle_id:
+            filter_dict["vehicle_id"] = vehicle_id
+        
+        skip = (page - 1) * size
+        sort = [("created_at", -1)]
+        
+        try:
+            plans = await self.db.find_many("delivery_plans", filter_dict, limit=size, sort=sort, skip=skip)
+            # Convert ObjectId for serialization
+            for plan in plans:
+                if '_id' in plan:
+                    plan['_id'] = str(plan['_id'])
+            return plans
+        except Exception as e:
+            logger.error(f"Error retrieving delivery plans: {e}")
+            return []
+    
+    async def count_delivery_plans(self, status: Optional[str] = None,
+                                  vehicle_id: Optional[str] = None) -> int:
+        """Count delivery plans"""
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if vehicle_id:
+            filter_dict["vehicle_id"] = vehicle_id
+        
+        try:
+            return await self.db.count_documents("delivery_plans", filter_dict)
+        except Exception as e:
+            logger.error(f"Error counting delivery plans: {e}")
+            return 0

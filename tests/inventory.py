@@ -22,7 +22,7 @@ async def test_final_v2():
 
         # 2. Store creation
         store_data = {
-            "store_id": "STORE_FINAL_V2",
+            "store_id": "STORE_FINAL_V4",
             "name": "Test Store V2",
             "address": {
                 "street": "456 Version St",
@@ -49,7 +49,7 @@ async def test_final_v2():
 
         # 3. Product creation
         product_data = {
-            "product_id": "PROD_FINAL_V2",
+            "product_id": "PROD_FINAL_V322",
             "name": "Test Product V2",
             "category": "electronics",
             "price": "299.99",
@@ -70,8 +70,8 @@ async def test_final_v2():
 
         # 4. Inventory creation (no available_stock)
         inventory_data = {
-            "store_id": "STORE_FINAL_V2",
-            "product_id": "PROD_FINAL_V2",
+            "store_id": "STORE_FINAL_V4",
+            "product_id": "PROD_FINAL_V322",
             "current_stock": 120,
             "reserved_stock": 10,
             "reorder_threshold": 30,

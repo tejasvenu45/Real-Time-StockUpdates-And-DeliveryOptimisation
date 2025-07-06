@@ -1,0 +1,261 @@
+2025-07-07 00:13:11,803 - INFO - Testing against: http://localhost:8000
+2025-07-07 00:13:11,804 - INFO - Store ID: INTEGRATION_STORE_001
+2025-07-07 00:13:11,804 - INFO - Product ID: AI_TEST_PROD_001
+2025-07-07 00:13:15,906 - ERROR - Request failed: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /vehicles (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001A5541C46E0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-07-07 00:13:20,093 - ERROR - Request failed: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /vehicles (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001A5541F0410>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-07-07 00:13:26,229 - ERROR - Request failed: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /vehicles?page=1&size=20 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001A5541F07D0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-07-07 00:13:31,297 - ERROR - Request failed: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /requests/manual (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001A5541E88A0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-07-07 00:13:35,386 - ERROR - Request failed: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /requests/manual (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001A5541E8770>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-07-07 00:13:39,452 - ERROR - Request failed: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /requests/manual (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x000001A5541E0290>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-07-07 00:17:29,500 - INFO - Starting Comprehensive Fulfillment System Integration Tests
+2025-07-07 00:17:29,501 - INFO - Testing against: http://localhost:8000
+2025-07-07 00:17:29,502 - INFO - Store ID: INTEGRATION_STORE_001
+2025-07-07 00:17:29,502 - INFO - Product ID: AI_TEST_PROD_001
+2025-07-07 00:17:29,502 - INFO - Checking server connectivity...
+2025-07-07 00:17:33,558 - ERROR - Cannot connect to server at http://localhost:8000
+2025-07-07 00:17:33,558 - ERROR - Please ensure your FastAPI server is running on the specified port
+2025-07-07 00:17:33,558 - ERROR - You can start it with: uvicorn main:app --host 0.0.0.0 --port 8000
+2025-07-07 00:17:33,559 - ERROR - Cannot proceed with tests - server is not accessible
+2025-07-07 00:17:33,559 - ERROR - Please start your FastAPI server and try again
+2025-07-07 00:17:33,559 - INFO - GENERATING TEST REPORT
+2025-07-07 00:17:33,560 - INFO - ================================================================================
+2025-07-07 00:17:33,560 - ERROR - SERVER NOT ACCESSIBLE
+2025-07-07 00:17:33,560 - ERROR - Please ensure your FastAPI server is running:
+2025-07-07 00:17:33,561 - ERROR -   1. Navigate to your project directory
+2025-07-07 00:17:33,561 - ERROR -   2. Run: uvicorn main:app --host 0.0.0.0 --port 8000
+2025-07-07 00:17:33,561 - ERROR -   3. Verify server is running at http://localhost:8000
+2025-07-07 00:17:33,561 - ERROR -   4. Re-run the tests
+2025-07-07 00:19:46,501 - INFO - Using base URL: http://localhost:8003
+2025-07-07 00:19:46,501 - INFO - API endpoints will use: http://localhost:8003/api/v1
+2025-07-07 00:19:46,502 - INFO - Starting Comprehensive Fulfillment System Integration Tests
+2025-07-07 00:19:46,502 - INFO - Testing against: http://localhost:8003/api/v1
+2025-07-07 00:19:46,502 - INFO - Store ID: INTEGRATION_STORE_001
+2025-07-07 00:19:46,502 - INFO - Product ID: AI_TEST_PROD_001
+2025-07-07 00:19:46,502 - INFO - Checking server connectivity...
+2025-07-07 00:19:48,892 - INFO - Server responded with status: 404
+2025-07-07 00:19:48,892 - INFO - Setting up test data...
+2025-07-07 00:19:48,906 - INFO - [PASS] Create Vehicle TEST_VEH_001
+2025-07-07 00:19:48,916 - INFO - [PASS] Create Vehicle TEST_VEH_002
+2025-07-07 00:19:50,918 - INFO - Testing Vehicle Management...
+2025-07-07 00:19:50,931 - INFO - [PASS] Get All Vehicles
+2025-07-07 00:19:50,939 - INFO - [PASS] Get Vehicle TEST_VEH_001
+2025-07-07 00:19:50,950 - INFO - [PASS] Update Vehicle TEST_VEH_001
+2025-07-07 00:19:51,950 - INFO - Testing Manual Stock Requests...
+2025-07-07 00:19:51,962 - INFO - [PASS] Create Manual Request 1
+2025-07-07 00:19:51,971 - ERROR - [FAIL] Create Manual Request 2 - ERROR: Status: 400, Response: {"success":false,"message":"Product AI_TEST_PROD_002 not available in warehouse","timestamp":"2025-07-06T18:49:51.969213"}
+2025-07-07 00:19:51,977 - ERROR - [FAIL] Create Manual Request 3 - ERROR: Status: 400, Response: {"success":false,"message":"Store INTEGRATION_STORE_002 not found","timestamp":"2025-07-06T18:49:51.976749"}
+2025-07-07 00:19:51,988 - INFO - [PASS] Get Manual Stock Requests
+2025-07-07 00:19:51,997 - INFO - [PASS] Filter Manual Requests by Store
+2025-07-07 00:19:52,998 - INFO - Testing AI Optimization...
+2025-07-07 00:19:53,024 - INFO - [PASS] AI Delivery Recommendations
+2025-07-07 00:19:53,029 - INFO - [PASS] Optimize Shipment with AI
+2025-07-07 00:19:53,033 - INFO - [PASS] AI Product Recommendations
+2025-07-07 00:19:53,037 - INFO - [PASS] Consolidate Orders
+2025-07-07 00:19:54,038 - INFO - Testing Fulfillment Requests...
+2025-07-07 00:19:54,047 - INFO - [PASS] Get Fulfillment Requests
+2025-07-07 00:19:54,060 - ERROR - [FAIL] Process Fulfillment Request MAN_1EB8C0EF - ERROR: Status: 404
+2025-07-07 00:19:55,061 - INFO - Testing Warehouse Management...
+2025-07-07 00:19:55,064 - INFO - [PASS] Get Warehouse Inventory
+2025-07-07 00:19:55,067 - INFO - [PASS] Filter Warehouse Inventory by Product
+2025-07-07 00:19:55,116 - INFO - [PASS] Allocate Warehouse Stock
+2025-07-07 00:19:56,117 - INFO - Testing Delivery Execution...
+2025-07-07 00:19:56,134 - INFO - [PASS] Execute Delivery Plan
+2025-07-07 00:19:56,144 - INFO - [PASS] Get Delivery Plans
+2025-07-07 00:19:57,144 - INFO - Testing Analytics...
+2025-07-07 00:19:57,148 - INFO - [PASS] Get Fulfillment Metrics
+2025-07-07 00:19:57,150 - INFO - [PASS] Get Warehouse Utilization
+2025-07-07 00:19:57,156 - INFO - [PASS] Get AI Performance Metrics
+2025-07-07 00:19:58,157 - INFO - Testing Error Handling...
+2025-07-07 00:19:58,161 - INFO - [PASS] Invalid Vehicle Creation (Expected Error)
+2025-07-07 00:19:58,166 - INFO - [PASS] Non-existent Vehicle Retrieval (Expected 404)
+2025-07-07 00:19:58,166 - INFO - Cleaning up test data...
+2025-07-07 00:19:58,171 - INFO - [CLEANUP] Deleted vehicle: TEST_VEH_001
+2025-07-07 00:19:58,175 - INFO - [CLEANUP] Deleted vehicle: TEST_VEH_002
+2025-07-07 00:19:58,175 - INFO - GENERATING TEST REPORT
+2025-07-07 00:19:58,176 - INFO - ================================================================================
+2025-07-07 00:19:58,176 - INFO - TEST SUMMARY:
+2025-07-07 00:19:58,176 - INFO -    Total Tests: 26
+2025-07-07 00:19:58,176 - INFO -    Passed: 23
+2025-07-07 00:19:58,176 - INFO -    Failed: 3
+2025-07-07 00:19:58,176 - INFO -    Success Rate: 88.5%
+2025-07-07 00:19:58,177 - INFO -    Duration: 9.28 seconds
+2025-07-07 00:19:58,177 - INFO - 
+2025-07-07 00:19:58,177 - INFO - AI CAPABILITIES:
+2025-07-07 00:19:58,177 - INFO -    AI Features Working: NO
+2025-07-07 00:19:58,177 - INFO -    Fallback Working: YES
+2025-07-07 00:19:58,177 - INFO - 
+2025-07-07 00:19:58,178 - INFO - SYSTEM COMPONENTS TESTED:
+2025-07-07 00:19:58,178 - INFO -    [PASS] Vehicle Management
+2025-07-07 00:19:58,178 - INFO -    [PASS] Manual Stock Requests
+2025-07-07 00:19:58,179 - INFO -    [PASS] AI Optimization Engine
+2025-07-07 00:19:58,179 - INFO -    [PASS] Fulfillment Processing
+2025-07-07 00:19:58,179 - INFO -    [PASS] Warehouse Management
+2025-07-07 00:19:58,179 - INFO -    [PASS] Delivery Execution
+2025-07-07 00:19:58,179 - INFO -    [PASS] Analytics & Reporting
+2025-07-07 00:19:58,180 - INFO -    [PASS] Error Handling
+2025-07-07 00:19:58,180 - INFO - 
+2025-07-07 00:19:58,180 - INFO - ERRORS ENCOUNTERED:
+2025-07-07 00:19:58,180 - INFO -    • Create Manual Request 2: Status: 400, Response: {"success":false,"message":"Product AI_TEST_PROD_002 not available in warehouse","timestamp":"2025-07-06T18:49:51.969213"}
+2025-07-07 00:19:58,181 - INFO -    • Create Manual Request 3: Status: 400, Response: {"success":false,"message":"Store INTEGRATION_STORE_002 not found","timestamp":"2025-07-06T18:49:51.976749"}
+2025-07-07 00:19:58,181 - INFO -    • Process Fulfillment Request MAN_1EB8C0EF: Status: 404
+2025-07-07 00:19:58,181 - INFO - 
+2025-07-07 00:19:58,181 - INFO - OVERALL STATUS: GOOD - System functioning with minor issues
+2025-07-07 00:19:58,181 - INFO - ================================================================================
+2025-07-07 00:19:58,182 - INFO - Detailed logs saved to: fulfillment_test.log
+2025-07-07 00:19:58,182 - INFO - Integration test suite completed!
+2025-07-07 00:25:02,223 - INFO - Using base URL: http://localhost:8003
+2025-07-07 00:25:02,224 - INFO - API endpoints will use: http://localhost:8003/api/v1
+2025-07-07 00:25:02,224 - INFO - Starting Comprehensive Fulfillment System Integration Tests
+2025-07-07 00:25:02,224 - INFO - Testing against: http://localhost:8003/api/v1
+2025-07-07 00:25:02,224 - INFO - Store ID: INTEGRATION_STORE_001
+2025-07-07 00:25:02,225 - INFO - Product ID: AI_TEST_PROD_001
+2025-07-07 00:25:02,225 - INFO - Checking server connectivity...
+2025-07-07 00:25:04,290 - INFO - Server responded with status: 404
+2025-07-07 00:25:04,290 - INFO - Setting up test data...
+2025-07-07 00:25:04,301 - INFO - [PASS] Create Vehicle TEST_VEH_001
+2025-07-07 00:25:04,312 - INFO - [PASS] Create Vehicle TEST_VEH_002
+2025-07-07 00:25:06,313 - INFO - Testing Vehicle Management...
+2025-07-07 00:25:06,326 - INFO - [PASS] Get All Vehicles
+2025-07-07 00:25:06,334 - INFO - [PASS] Get Vehicle TEST_VEH_001
+2025-07-07 00:25:06,340 - INFO - [PASS] Update Vehicle TEST_VEH_001
+2025-07-07 00:25:07,340 - INFO - Testing Manual Stock Requests...
+2025-07-07 00:25:07,352 - INFO - [PASS] Create Manual Request 1
+2025-07-07 00:25:07,360 - ERROR - [FAIL] Create Manual Request 2 - ERROR: Status: 400, Response: {"success":false,"message":"Product AI_TEST_PROD_002 not available in warehouse","timestamp":"2025-07-06T18:55:07.359457"}
+2025-07-07 00:25:07,366 - ERROR - [FAIL] Create Manual Request 3 - ERROR: Status: 400, Response: {"success":false,"message":"Store INTEGRATION_STORE_002 not found","timestamp":"2025-07-06T18:55:07.365093"}
+2025-07-07 00:25:07,374 - INFO - [PASS] Get Manual Stock Requests
+2025-07-07 00:25:07,384 - INFO - [PASS] Filter Manual Requests by Store
+2025-07-07 00:25:08,385 - INFO - Testing AI Optimization...
+2025-07-07 00:25:08,408 - INFO - [PASS] AI Delivery Recommendations
+2025-07-07 00:25:08,412 - INFO - [PASS] Optimize Shipment with AI
+2025-07-07 00:25:08,416 - INFO - [PASS] AI Product Recommendations
+2025-07-07 00:25:08,419 - INFO - [PASS] Consolidate Orders
+2025-07-07 00:25:09,420 - INFO - Testing Fulfillment Requests...
+2025-07-07 00:25:09,429 - INFO - [PASS] Get Fulfillment Requests
+2025-07-07 00:25:09,443 - ERROR - [FAIL] Process Fulfillment Request MAN_3DED5E33 - ERROR: Status: 404
+2025-07-07 00:25:10,444 - INFO - Testing Warehouse Management...
+2025-07-07 00:25:10,448 - INFO - [PASS] Get Warehouse Inventory
+2025-07-07 00:25:10,450 - INFO - [PASS] Filter Warehouse Inventory by Product
+2025-07-07 00:25:10,461 - INFO - [PASS] Allocate Warehouse Stock
+2025-07-07 00:25:11,462 - INFO - Testing Delivery Execution...
+2025-07-07 00:25:11,492 - INFO - [PASS] Execute Delivery Plan
+2025-07-07 00:25:11,503 - INFO - [PASS] Get Delivery Plans
+2025-07-07 00:25:12,504 - INFO - Testing Analytics...
+2025-07-07 00:25:12,510 - INFO - [PASS] Get Fulfillment Metrics
+2025-07-07 00:25:12,514 - INFO - [PASS] Get Warehouse Utilization
+2025-07-07 00:25:12,518 - INFO - [PASS] Get AI Performance Metrics
+2025-07-07 00:25:13,518 - INFO - Testing Error Handling...
+2025-07-07 00:25:13,522 - INFO - [PASS] Invalid Vehicle Creation (Expected Error)
+2025-07-07 00:25:13,528 - INFO - [PASS] Non-existent Vehicle Retrieval (Expected 404)
+2025-07-07 00:25:13,528 - INFO - Cleaning up test data...
+2025-07-07 00:25:13,533 - INFO - [CLEANUP] Deleted vehicle: TEST_VEH_001
+2025-07-07 00:25:13,539 - INFO - [CLEANUP] Deleted vehicle: TEST_VEH_002
+2025-07-07 00:25:13,539 - INFO - GENERATING TEST REPORT
+2025-07-07 00:25:13,540 - INFO - ================================================================================
+2025-07-07 00:25:13,540 - INFO - TEST SUMMARY:
+2025-07-07 00:25:13,540 - INFO -    Total Tests: 26
+2025-07-07 00:25:13,540 - INFO -    Passed: 23
+2025-07-07 00:25:13,541 - INFO -    Failed: 3
+2025-07-07 00:25:13,541 - INFO -    Success Rate: 88.5%
+2025-07-07 00:25:13,541 - INFO -    Duration: 9.25 seconds
+2025-07-07 00:25:13,541 - INFO - 
+2025-07-07 00:25:13,542 - INFO - AI CAPABILITIES:
+2025-07-07 00:25:13,542 - INFO -    AI Features Working: NO
+2025-07-07 00:25:13,543 - INFO -    Fallback Working: YES
+2025-07-07 00:25:13,543 - INFO - 
+2025-07-07 00:25:13,543 - INFO - SYSTEM COMPONENTS TESTED:
+2025-07-07 00:25:13,543 - INFO -    [PASS] Vehicle Management
+2025-07-07 00:25:13,544 - INFO -    [PASS] Manual Stock Requests
+2025-07-07 00:25:13,544 - INFO -    [PASS] AI Optimization Engine
+2025-07-07 00:25:13,544 - INFO -    [PASS] Fulfillment Processing
+2025-07-07 00:25:13,545 - INFO -    [PASS] Warehouse Management
+2025-07-07 00:25:13,545 - INFO -    [PASS] Delivery Execution
+2025-07-07 00:25:13,545 - INFO -    [PASS] Analytics & Reporting
+2025-07-07 00:25:13,545 - INFO -    [PASS] Error Handling
+2025-07-07 00:25:13,546 - INFO - 
+2025-07-07 00:25:13,546 - INFO - ERRORS ENCOUNTERED:
+2025-07-07 00:25:13,546 - INFO -    • Create Manual Request 2: Status: 400, Response: {"success":false,"message":"Product AI_TEST_PROD_002 not available in warehouse","timestamp":"2025-07-06T18:55:07.359457"}
+2025-07-07 00:25:13,546 - INFO -    • Create Manual Request 3: Status: 400, Response: {"success":false,"message":"Store INTEGRATION_STORE_002 not found","timestamp":"2025-07-06T18:55:07.365093"}
+2025-07-07 00:25:13,547 - INFO -    • Process Fulfillment Request MAN_3DED5E33: Status: 404
+2025-07-07 00:25:13,547 - INFO - 
+2025-07-07 00:25:13,547 - INFO - OVERALL STATUS: GOOD - System functioning with minor issues
+2025-07-07 00:25:13,547 - INFO - ================================================================================
+2025-07-07 00:25:13,547 - INFO - Detailed logs saved to: fulfillment_test.log
+2025-07-07 00:25:13,548 - INFO - Integration test suite completed!
+2025-07-07 00:27:41,574 - INFO - Using base URL: http://localhost:8003
+2025-07-07 00:27:41,575 - INFO - API endpoints will use: http://localhost:8003/api/v1
+2025-07-07 00:27:41,575 - INFO - Starting Comprehensive Fulfillment System Integration Tests
+2025-07-07 00:27:41,576 - INFO - Testing against: http://localhost:8003/api/v1
+2025-07-07 00:27:41,576 - INFO - Store ID: INTEGRATION_STORE_001
+2025-07-07 00:27:41,576 - INFO - Product ID: AI_TEST_PROD_001
+2025-07-07 00:27:41,577 - INFO - Checking server connectivity...
+2025-07-07 00:27:43,615 - INFO - Server responded with status: 404
+2025-07-07 00:27:43,616 - INFO - Setting up test data...
+2025-07-07 00:27:43,627 - INFO - [PASS] Create Vehicle TEST_VEH_001
+2025-07-07 00:27:43,635 - INFO - [PASS] Create Vehicle TEST_VEH_002
+2025-07-07 00:27:45,636 - INFO - Testing Vehicle Management...
+2025-07-07 00:27:45,644 - INFO - [PASS] Get All Vehicles
+2025-07-07 00:27:45,649 - INFO - [PASS] Get Vehicle TEST_VEH_001
+2025-07-07 00:27:45,653 - INFO - [PASS] Update Vehicle TEST_VEH_001
+2025-07-07 00:27:46,654 - INFO - Testing Manual Stock Requests...
+2025-07-07 00:27:46,665 - INFO - [PASS] Create Manual Request 1
+2025-07-07 00:27:46,672 - ERROR - [FAIL] Create Manual Request 2 - ERROR: Status: 400, Response: {"success":false,"message":"Product AI_TEST_PROD_002 not available in warehouse","timestamp":"2025-07-06T18:57:46.671500"}
+2025-07-07 00:27:46,675 - ERROR - [FAIL] Create Manual Request 3 - ERROR: Status: 400, Response: {"success":false,"message":"Store INTEGRATION_STORE_002 not found","timestamp":"2025-07-06T18:57:46.675353"}
+2025-07-07 00:27:46,684 - INFO - [PASS] Get Manual Stock Requests
+2025-07-07 00:27:46,696 - INFO - [PASS] Filter Manual Requests by Store
+2025-07-07 00:27:47,696 - INFO - Testing AI Optimization...
+2025-07-07 00:27:47,717 - INFO - [PASS] AI Delivery Recommendations
+2025-07-07 00:27:47,720 - INFO - [PASS] Optimize Shipment with AI
+2025-07-07 00:27:47,723 - INFO - [PASS] AI Product Recommendations
+2025-07-07 00:27:47,725 - INFO - [PASS] Consolidate Orders
+2025-07-07 00:27:48,725 - INFO - Testing Fulfillment Requests...
+2025-07-07 00:27:48,734 - INFO - [PASS] Get Fulfillment Requests
+2025-07-07 00:27:48,745 - ERROR - [FAIL] Process Fulfillment Request MAN_6C4AA896 - ERROR: Status: 404
+2025-07-07 00:27:49,745 - INFO - Testing Warehouse Management...
+2025-07-07 00:27:49,749 - INFO - [PASS] Get Warehouse Inventory
+2025-07-07 00:27:49,752 - INFO - [PASS] Filter Warehouse Inventory by Product
+2025-07-07 00:27:49,761 - INFO - [PASS] Allocate Warehouse Stock
+2025-07-07 00:27:50,762 - INFO - Testing Delivery Execution...
+2025-07-07 00:27:50,778 - INFO - [PASS] Execute Delivery Plan
+2025-07-07 00:27:50,788 - INFO - [PASS] Get Delivery Plans
+2025-07-07 00:27:51,789 - INFO - Testing Analytics...
+2025-07-07 00:27:51,795 - INFO - [PASS] Get Fulfillment Metrics
+2025-07-07 00:27:51,798 - INFO - [PASS] Get Warehouse Utilization
+2025-07-07 00:27:51,800 - INFO - [PASS] Get AI Performance Metrics
+2025-07-07 00:27:52,801 - INFO - Testing Error Handling...
+2025-07-07 00:27:52,804 - INFO - [PASS] Invalid Vehicle Creation (Expected Error)
+2025-07-07 00:27:52,810 - INFO - [PASS] Non-existent Vehicle Retrieval (Expected 404)
+2025-07-07 00:27:52,810 - INFO - Cleaning up test data...
+2025-07-07 00:27:52,816 - INFO - [CLEANUP] Deleted vehicle: TEST_VEH_001
+2025-07-07 00:27:52,821 - INFO - [CLEANUP] Deleted vehicle: TEST_VEH_002
+2025-07-07 00:27:52,821 - INFO - GENERATING TEST REPORT
+2025-07-07 00:27:52,821 - INFO - ================================================================================
+2025-07-07 00:27:52,822 - INFO - TEST SUMMARY:
+2025-07-07 00:27:52,822 - INFO -    Total Tests: 26
+2025-07-07 00:27:52,822 - INFO -    Passed: 23
+2025-07-07 00:27:52,823 - INFO -    Failed: 3
+2025-07-07 00:27:52,823 - INFO -    Success Rate: 88.5%
+2025-07-07 00:27:52,824 - INFO -    Duration: 9.21 seconds
+2025-07-07 00:27:52,824 - INFO - 
+2025-07-07 00:27:52,824 - INFO - AI CAPABILITIES:
+2025-07-07 00:27:52,824 - INFO -    AI Features Working: NO
+2025-07-07 00:27:52,824 - INFO -    Fallback Working: YES
+2025-07-07 00:27:52,824 - INFO - 
+2025-07-07 00:27:52,824 - INFO - SYSTEM COMPONENTS TESTED:
+2025-07-07 00:27:52,825 - INFO -    [PASS] Vehicle Management
+2025-07-07 00:27:52,825 - INFO -    [PASS] Manual Stock Requests
+2025-07-07 00:27:52,825 - INFO -    [PASS] AI Optimization Engine
+2025-07-07 00:27:52,825 - INFO -    [PASS] Fulfillment Processing
+2025-07-07 00:27:52,825 - INFO -    [PASS] Warehouse Management
+2025-07-07 00:27:52,826 - INFO -    [PASS] Delivery Execution
+2025-07-07 00:27:52,826 - INFO -    [PASS] Analytics & Reporting
+2025-07-07 00:27:52,826 - INFO -    [PASS] Error Handling
+2025-07-07 00:27:52,826 - INFO - 
+2025-07-07 00:27:52,827 - INFO - ERRORS ENCOUNTERED:
+2025-07-07 00:27:52,827 - INFO -    • Create Manual Request 2: Status: 400, Response: {"success":false,"message":"Product AI_TEST_PROD_002 not available in warehouse","timestamp":"2025-07-06T18:57:46.671500"}
+2025-07-07 00:27:52,827 - INFO -    • Create Manual Request 3: Status: 400, Response: {"success":false,"message":"Store INTEGRATION_STORE_002 not found","timestamp":"2025-07-06T18:57:46.675353"}
+2025-07-07 00:27:52,828 - INFO -    • Process Fulfillment Request MAN_6C4AA896: Status: 404
+2025-07-07 00:27:52,828 - INFO - 
+2025-07-07 00:27:52,828 - INFO - OVERALL STATUS: GOOD - System functioning with minor issues
+2025-07-07 00:27:52,828 - INFO - ================================================================================
+2025-07-07 00:27:52,829 - INFO - Detailed logs saved to: fulfillment_test.log
+2025-07-07 00:27:52,829 - INFO - Integration test suite completed!

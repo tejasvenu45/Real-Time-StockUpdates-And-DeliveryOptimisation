@@ -54,10 +54,8 @@ class InventoryService:
         skip = (page - 1) * size
         sort = [("created_at", -1)]
         
-        stores = await self.db.find_many("stores", filter_dict, limit=size, sort=sort)
-        
-        # Skip manually since MongoDB motor doesn't have skip in find_many
-        return stores[skip:skip + size] if len(stores) > skip else []
+        stores = await self.db.find_many("stores", filter_dict, limit=size, sort=sort, skip=skip)
+        return stores
     
     async def get_store(self, store_id: str) -> Optional[Dict]:
         """Get a specific store"""
@@ -108,8 +106,8 @@ class InventoryService:
         skip = (page - 1) * size
         sort = [("created_at", -1)]
         
-        products = await self.db.find_many("products", filter_dict, limit=size, sort=sort)
-        return products[skip:skip + size] if len(products) > skip else []
+        products = await self.db.find_many("products", filter_dict, limit=size, sort=sort, skip=skip)
+        return products
     
     async def get_product(self, product_id: str) -> Optional[Dict]:
         """Get a specific product"""
@@ -190,6 +188,8 @@ class InventoryService:
         if product_id:
             filter_dict["product_id"] = product_id
         
+        skip = (page - 1) * size
+        
         # Use aggregation for low stock filtering
         if low_stock_only:
             pipeline = [
@@ -201,15 +201,14 @@ class InventoryService:
                 }},
                 {"$match": {"is_low_stock": True}},
                 {"$sort": {"updated_at": -1}},
-                {"$skip": (page - 1) * size},
+                {"$skip": skip},
                 {"$limit": size}
             ]
             return await self.db.aggregate("inventory", pipeline)
         else:
-            skip = (page - 1) * size
             sort = [("updated_at", -1)]
-            inventory_items = await self.db.find_many("inventory", filter_dict, limit=size, sort=sort)
-            return inventory_items[skip:skip + size] if len(inventory_items) > skip else []
+            inventory_items = await self.db.find_many("inventory", filter_dict, limit=size, sort=sort, skip=skip)
+            return inventory_items
     
     async def get_inventory_item(self, store_id: str, product_id: str) -> Optional[Dict]:
         """Get specific inventory item"""
@@ -371,8 +370,8 @@ class InventoryService:
         skip = (page - 1) * size
         sort = [("timestamp", -1)]
         
-        sales = await self.db.find_many("sales", filter_dict, limit=size, sort=sort)
-        return sales[skip:skip + size] if len(sales) > skip else []
+        sales = await self.db.find_many("sales", filter_dict, limit=size, sort=sort, skip=skip)
+        return sales
     
     async def count_sales(self, store_id: Optional[str] = None,
                          product_id: Optional[str] = None,
@@ -458,8 +457,8 @@ class InventoryService:
         skip = (page - 1) * size
         sort = [("created_at", -1)]
         
-        requests = await self.db.find_many("restock_requests", filter_dict, limit=size, sort=sort)
-        return requests[skip:skip + size] if len(requests) > skip else []
+        requests = await self.db.find_many("restock_requests", filter_dict, limit=size, sort=sort, skip=skip)
+        return requests
     
     async def count_restock_requests(self, store_id: Optional[str] = None,
                                    status: Optional[str] = None,

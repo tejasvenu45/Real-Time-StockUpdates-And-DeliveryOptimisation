@@ -141,7 +141,7 @@ class DatabaseManager:
             raise
     
     async def find_many(self, collection_name: str, filter_dict: Dict[str, Any] = None, 
-                       limit: int = None, sort: List[tuple] = None) -> List[Dict[str, Any]]:
+                       limit: int = None, sort: List[tuple] = None, skip: int = None) -> List[Dict[str, Any]]:
         """Find multiple documents"""
         try:
             collection = self.get_collection(collection_name)
@@ -149,6 +149,8 @@ class DatabaseManager:
             
             if sort:
                 cursor = cursor.sort(sort)
+            if skip:
+                cursor = cursor.skip(skip)
             if limit:
                 cursor = cursor.limit(limit)
                 

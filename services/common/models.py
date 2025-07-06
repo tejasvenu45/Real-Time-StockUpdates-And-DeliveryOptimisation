@@ -240,6 +240,39 @@ class Vehicle(BaseModel):
     def available_volume_capacity(self) -> float:
         return max(0, self.max_volume_capacity - self.current_volume)
 
+class ManualStockRequest(BaseModel):
+    """Manual stock request from stores"""
+    request_id: str = Field(..., min_length=1)
+    store_id: str
+    product_id: str
+    requested_quantity: int = Field(..., gt=0)
+    priority: Priority = Priority.MEDIUM
+    reason: str = Field(..., min_length=1)
+    status: RequestStatus = RequestStatus.PENDING
+    requested_by: str  # Store manager name/ID
+    urgency_level: str = Field(default="normal")  # normal, urgent, critical
+    preferred_delivery_window: Optional[str] = None  # morning, afternoon, evening
+    notes: Optional[str] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+
+class DeliveryPlan(BaseModel):
+    """AI-generated delivery plan"""
+    plan_id: str = Field(..., min_length=1)
+    vehicle_id: str
+    store_destinations: List[str] = Field(..., min_items=1)  # List of store IDs in delivery order
+    product_items: List[Dict[str, Any]] = Field(..., min_items=1)  # Products to deliver
+    estimated_total_weight: float = Field(..., gt=0)
+    estimated_total_volume: float = Field(..., gt=0)
+    estimated_distance_km: float = Field(..., gt=0)
+    ai_reasoning: str = Field(..., min_length=1)  # AI's natural language explanation
+    status: str = Field(default="pending")  # pending, approved, executing, completed
+    created_by_ai: bool = Field(default=True)
+    approved_by: Optional[str] = None  # Warehouse manager
+    execution_notes: Optional[str] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+
 class DeliveryItem(BaseModel):
     """Item in a delivery"""
     product_id: str
