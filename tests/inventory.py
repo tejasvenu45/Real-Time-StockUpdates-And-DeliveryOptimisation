@@ -22,7 +22,7 @@ async def test_final_v2():
 
         # 2. Store creation
         store_data = {
-            "store_id": "STORE_FINAL_V4",
+            "store_id": "teststore01",
             "name": "Test Store V2",
             "address": {
                 "street": "456 Version St",
@@ -31,8 +31,8 @@ async def test_final_v2():
                 "postal_code": "99999",
                 "country": "Testland",
                 "coordinates": {
-                    "latitude": 12.9716,
-                    "longitude": 77.5946
+                    "latitude": 12.9711,
+                    "longitude": 77.5969
                 }
             },
             "manager_name": "Mr. Test",
@@ -49,7 +49,7 @@ async def test_final_v2():
 
         # 3. Product creation
         product_data = {
-            "product_id": "PROD_FINAL_V322",
+            "product_id": "testproduct01",
             "name": "Test Product V2",
             "category": "electronics",
             "price": "299.99",
@@ -70,8 +70,8 @@ async def test_final_v2():
 
         # 4. Inventory creation (no available_stock)
         inventory_data = {
-            "store_id": "STORE_FINAL_V4",
-            "product_id": "PROD_FINAL_V322",
+            "store_id": "teststore01",
+            "product_id": "testproduct01",
             "current_stock": 120,
             "reserved_stock": 10,
             "reorder_threshold": 30,
@@ -89,8 +89,8 @@ async def test_final_v2():
 
         # 5. Record sale
         sale_data = {
-            "store_id": "STORE_FINAL_V2",
-            "product_id": "PROD_FINAL_V2",
+            "store_id": "teststore01",
+            "product_id": "testproduct01",
             "quantity": 3,
             "unit_price": "299.99",
             "discount": "0.00",
