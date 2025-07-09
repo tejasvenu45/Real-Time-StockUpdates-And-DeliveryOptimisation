@@ -13,7 +13,7 @@ from services.common.kafka_client import kafka_manager
 from services.common.models import (
     Store, Product, InventoryItem, InventoryItemCreate, SaleTransaction, RestockRequest,
     StoreCreateRequest, ProductCreateRequest, InventoryUpdateRequest, SaleRequest,
-    Priority, RequestStatus, ProductCategory
+    Priority, RequestStatus, ProductCategory, Vehicle, VehicleStatus
 )
 
 logger = logging.getLogger(__name__)
@@ -396,7 +396,10 @@ class InventoryService:
     # =============================================================================
     # RESTOCK MANAGEMENT
     # =============================================================================
-    
+    async def get_all_restock_messages(self) -> List[Dict[str, Any]]:
+        """Return all consumed restock request messages"""
+        return self.restock_message
+
     async def create_restock_request(self, store_id: str, product_id: str,
                                    quantity: int, priority: Priority,
                                    reason: str, requested_by: Optional[str] = None) -> str:
@@ -583,3 +586,110 @@ class InventoryService:
                 reason="Automatic stock replenishment",
                 requested_by="system"
             )
+    
+    async def create_vehicle(self, vehicle_data: Dict[str, Any]) -> str:
+        """Create a new vehicle"""
+        # Validate required fields
+        required_fields = ["vehicle_id", "license_plate", "vehicle_type", "max_weight_capacity", "max_volume_capacity"]
+        for field in required_fields:
+            if field not in vehicle_data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Check if vehicle already exists
+        existing = await self.db.find_one("vehicles", {"vehicle_id": vehicle_data["vehicle_id"]})
+        if existing:
+            raise ValueError(f"Vehicle with ID {vehicle_data['vehicle_id']} already exists")
+        
+        # Create vehicle document
+        vehicle_doc = {
+            **vehicle_data,
+            "status": vehicle_data.get("status", "available"),
+            "current_weight": 0,
+            "current_volume": 0,
+            "created_at": datetime.utcnow()
+        }
+        
+        # Insert into database
+        await self.db.insert_one("vehicles", vehicle_doc)
+        
+        logger.info(f"Created vehicle: {vehicle_data['vehicle_id']}")
+        return vehicle_data["vehicle_id"]
+    
+    async def get_vehicles(self, status: Optional[str] = None,
+                          vehicle_type: Optional[str] = None,
+                          available_only: bool = False,
+                          page: int = 1, size: int = 20) -> List[Dict]:
+        """Get vehicles with filtering"""
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if vehicle_type:
+            filter_dict["vehicle_type"] = vehicle_type
+        if available_only:
+            filter_dict["status"] = "available"
+        
+        skip = (page - 1) * size
+        sort = [("created_at", -1)]
+        
+        try:
+            vehicles = await self.db.find_many("vehicles", filter_dict, limit=size, sort=sort, skip=skip)
+            # Convert ObjectId for serialization
+            for vehicle in vehicles:
+                if '_id' in vehicle:
+                    vehicle['_id'] = str(vehicle['_id'])
+                # Calculate available capacity
+                vehicle['available_weight_capacity'] = max(0, vehicle.get('max_weight_capacity', 0) - vehicle.get('current_weight', 0))
+                vehicle['available_volume_capacity'] = max(0, vehicle.get('max_volume_capacity', 0) - vehicle.get('current_volume', 0))
+            return vehicles
+        except Exception as e:
+            logger.error(f"Error retrieving vehicles: {e}")
+            return []
+    
+    async def get_vehicle(self, vehicle_id: str) -> Optional[Dict]:
+        """Get specific vehicle by ID"""
+        try:
+            vehicle = await self.db.find_one("vehicles", {"vehicle_id": vehicle_id})
+            if vehicle and '_id' in vehicle:
+                vehicle['_id'] = str(vehicle['_id'])
+                # Calculate available capacity
+                vehicle['available_weight_capacity'] = max(0, vehicle.get('max_weight_capacity', 0) - vehicle.get('current_weight', 0))
+                vehicle['available_volume_capacity'] = max(0, vehicle.get('max_volume_capacity', 0) - vehicle.get('current_volume', 0))
+            return vehicle
+        except Exception as e:
+            logger.error(f"Error retrieving vehicle {vehicle_id}: {e}")
+            return None
+    
+    async def update_vehicle(self, vehicle_id: str, vehicle_data: Dict[str, Any]) -> bool:
+        """Update vehicle information"""
+        try:
+            vehicle_data["updated_at"] = datetime.utcnow()
+            return await self.db.update_one("vehicles", {"vehicle_id": vehicle_id}, vehicle_data)
+        except Exception as e:
+            logger.error(f"Error updating vehicle {vehicle_id}: {e}")
+            return False
+    
+    async def delete_vehicle(self, vehicle_id: str) -> bool:
+        """Delete a vehicle"""
+        try:
+            return await self.db.delete_one("vehicles", {"vehicle_id": vehicle_id})
+        except Exception as e:
+            logger.error(f"Error deleting vehicle {vehicle_id}: {e}")
+            return False
+    
+    async def count_vehicles(self, status: Optional[str] = None,
+                           vehicle_type: Optional[str] = None,
+                           available_only: bool = False) -> int:
+        """Count vehicles"""
+        filter_dict = {}
+        if status:
+            filter_dict["status"] = status
+        if vehicle_type:
+            filter_dict["vehicle_type"] = vehicle_type
+        if available_only:
+            filter_dict["status"] = "available"
+        
+        try:
+            return await self.db.count_documents("vehicles", filter_dict)
+        except Exception as e:
+            logger.error(f"Error counting vehicles: {e}")
+            return 0

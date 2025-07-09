@@ -104,6 +104,17 @@ class Store(BaseModel):
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 
+
+class StoreCreateRequest(BaseModel):
+    store_id: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    address: Address
+    manager_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    operating_hours: Dict[str, str] = Field(default_factory=dict)
+    capacity: Dict[str, Union[int, float]] = Field(default_factory=dict)
+
 class Product(BaseModel):
     """Product model"""
     product_id: str = Field(..., min_length=1)

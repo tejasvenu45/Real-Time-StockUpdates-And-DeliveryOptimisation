@@ -3,10 +3,11 @@ Inventory Service API Routes
 REST API endpoints for inventory management
 """
 import logging
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Dict, Any, List, Optional, Callable
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from datetime import datetime
-
+import httpx
+from services.common.kafka_client import get_kafka_manager, KafkaManager
 from services.common.database import DatabaseManager, get_database
 from services.common.models import (
     Store, Product, InventoryItem, InventoryItemCreate, SaleTransaction, RestockRequest,
@@ -483,6 +484,11 @@ async def get_restock_requests(
 # ANALYTICS ENDPOINTS
 # =============================================================================
 
+@router.get("/kafka/restock-messages")
+async def fetch_restock_messages(kafka: KafkaManager = Depends(get_kafka_manager)) -> List[dict]:
+    return await kafka.get_all_restock_messages()
+
+
 @router.get("/analytics/inventory-summary", response_model=APIResponse)
 async def get_inventory_summary(
     store_id: Optional[str] = Query(None),
@@ -518,3 +524,285 @@ async def get_low_stock_alerts(
     except Exception as e:
         logger.error(f"Error getting low stock alerts: {e}")
         raise HTTPException(status_code=500, detail="Failed to get low stock alerts")
+
+@router.post("/kafka/process-fulfillment")
+async def process_fulfillment_requests(kafka: KafkaManager = Depends(get_kafka_manager)):
+    await kafka.process_restock_requests_and_generate_fulfillments()
+    return {"message": "Fulfillment events generated and sent"}
+
+@router.get("/kafka/fulfillment-messages")
+async def get_fulfillment_messages(kafka: KafkaManager = Depends(get_kafka_manager)):
+    return kafka.fulfillment_messages
+##VEhicels"""
+
+@router.post("/vehicles")
+async def create_vehicle(
+    vehicle_data: Dict[str, Any] = Body(...),
+    service: InventoryService = Depends(get_inventory_service)
+):
+    """Create a new vehicle"""
+    try:
+        vehicle_id = await service.create_vehicle(vehicle_data)
+        return {
+            "success": True,
+            "message": "Vehicle created successfully",
+            "data": {"vehicle_id": vehicle_id},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error creating vehicle: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create vehicle")
+
+@router.get("/vehicles")
+async def get_vehicles(
+    status: Optional[str] = Query(None),
+    vehicle_type: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    service: InventoryService = Depends(get_inventory_service)
+):
+    """Get vehicles with filtering"""
+    try:
+        vehicles = await service.get_vehicles(
+            status=status,
+            vehicle_type=vehicle_type,
+            page=page,
+            size=size
+        )
+        total = await service.count_vehicles(status=status, vehicle_type=vehicle_type)
+        
+        return {
+            "success": True,
+            "message": "Vehicles retrieved successfully",
+            "data": {
+                "items": serialize_for_json(vehicles),
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving vehicles: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve vehicles")
+
+@router.get("/vehicles/{vehicle_id}")
+async def get_vehicle(
+    vehicle_id: str,
+    service: InventoryService = Depends(get_inventory_service)
+):
+    """Get specific vehicle by ID"""
+    try:
+        vehicle = await service.get_vehicle(vehicle_id)
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        return {
+            "success": True,
+            "message": "Vehicle retrieved successfully",
+            "data": serialize_for_json(vehicle),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving vehicle {vehicle_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve vehicle")
+
+@router.put("/vehicles/{vehicle_id}")
+async def update_vehicle(
+    vehicle_id: str,
+    vehicle_data: Dict[str, Any] = Body(...),
+    service: InventoryService = Depends(get_inventory_service)
+):
+    """Update vehicle information"""
+    try:
+        success = await service.update_vehicle(vehicle_id, vehicle_data)
+        if not success:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        return {
+            "success": True,
+            "message": "Vehicle updated successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating vehicle {vehicle_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update vehicle")
+
+@router.delete("/vehicles/{vehicle_id}")
+async def delete_vehicle(
+    vehicle_id: str,
+    service: InventoryService = Depends(get_inventory_service)
+):
+    """Delete a vehicle"""
+    try:
+        success = await service.delete_vehicle(vehicle_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        
+        return {
+            "success": True,
+            "message": "Vehicle deleted successfully",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting vehicle {vehicle_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete vehicle")
+
+
+# # @router.get("/kafka/vehicle-assignments")
+# # async def assign_vehicles_to_fulfillment(service: InventoryService = Depends(get_inventory_service)):
+
+
+#     """Assign vehicles to stores based on fulfillment request volume"""
+#     async with httpx.AsyncClient() as client:
+#         # 1. Get all available vehicles
+#         vehicles_response = await client.get("http://localhost:8001/api/v1/vehicles?available_only=true")
+#         vehicles = vehicles_response.json()["data"]["items"]
+
+#         # 2. Get fulfillment messages
+#         fulfillment_response = await client.get("http://localhost:8001/api/v1/kafka/fulfillment-messages")
+#         fulfillments = fulfillment_response.json()
+
+#     # 3. Preprocess volume per fulfillment
+#     assignments = []
+#     vehicle_pool = []
+
+#     for v in vehicles:
+#         vehicle_pool.append({
+#             "vehicle_id": v["vehicle_id"],
+#             "available_volume": v["available_volume_capacity"],
+#             "available_weight": v["available_weight_capacity"]
+#         })
+
+#     # Sort vehicles descending by available volume
+#     vehicle_pool.sort(key=lambda v: v["available_volume"], reverse=True)
+
+#     for fulfillment in fulfillments:
+#         store_id = fulfillment["store_id"]
+#         request_id = fulfillment["request_id"]
+#         products = fulfillment["products"]
+
+#         total_volume = sum(p["volume"] * p["requested_quantity"] for p in products)
+
+#         assigned_vehicle = None
+#         for vehicle in vehicle_pool:
+#             if vehicle["available_volume"] >= total_volume:
+#                 assigned_vehicle = vehicle
+#                 vehicle["available_volume"] -= total_volume  # Update remaining volume
+#                 break
+
+#         if assigned_vehicle:
+#             assignments.append({
+#                 "store_id": store_id,
+#                 "request_id": request_id,
+#                 "vehicle_id": assigned_vehicle["vehicle_id"],
+#                 "total_volume_needed": total_volume,
+#                 "vehicle_remaining_volume": assigned_vehicle["available_volume"]
+#             })
+#         else:
+#             assignments.append({
+#                 "store_id": store_id,
+#                 "request_id": request_id,
+#                 "vehicle_id": None,
+#                 "total_volume_needed": total_volume,
+#                 "error": "No vehicle with enough volume available"
+#             })
+
+#     return {
+#         "success": True,
+#         "message": "Vehicle assignments completed",
+#         "data": {
+#             "assignments": assignments,
+#             "unassigned_fulfillments": [a for a in assignments if a["vehicle_id"] is None]
+#         }
+#     }
+@router.get("/kafka/vehicle-assignments")
+async def assign_vehicles_to_fulfillment(service: InventoryService = Depends(get_inventory_service)):
+    """Assign multiple vehicles to fulfillments based on total volume needs"""
+    async with httpx.AsyncClient() as client:
+        # 1. Get available vehicles
+        vehicles_response = await client.get("http://localhost:8001/api/v1/vehicles?available_only=true")
+        vehicles = vehicles_response.json()["data"]["items"]
+
+        # 2. Get fulfillment requests
+        fulfillment_response = await client.get("http://localhost:8001/api/v1/kafka/fulfillment-messages")
+        fulfillments = fulfillment_response.json()
+
+    # 3. Prepare vehicle pool
+    vehicle_pool = []
+    for v in vehicles:
+        vehicle_pool.append({
+            "vehicle_id": v["vehicle_id"],
+            "available_volume": v["available_volume_capacity"]
+        })
+
+    # Sort vehicles by descending volume
+    vehicle_pool.sort(key=lambda v: v["available_volume"], reverse=True)
+
+    assignments = []
+    unassigned = []
+
+    # 4. Loop through each fulfillment
+    for fulfillment in fulfillments:
+        store_id = fulfillment["store_id"]
+        request_id = fulfillment["request_id"]
+        products = fulfillment["products"]
+
+        # Calculate total volume needed
+        total_volume = sum(p["volume"] * p["requested_quantity"] for p in products)
+
+        used_vehicles = []
+        used_capacity = 0.0
+
+        for vehicle in vehicle_pool:
+            if used_capacity >= total_volume:
+                break
+
+            remaining = total_volume - used_capacity
+            take_volume = min(remaining, vehicle["available_volume"])
+
+            if take_volume > 0:
+                used_vehicles.append({
+                    "vehicle_id": vehicle["vehicle_id"],
+                    "assigned_volume": take_volume,
+                    "leftover_volume": vehicle["available_volume"] - take_volume
+                })
+                used_capacity += take_volume
+                vehicle["available_volume"] -= take_volume  # Update vehicle pool
+
+        if used_capacity >= total_volume:
+            assignments.append({
+                "store_id": store_id,
+                "request_id": request_id,
+                "total_volume_needed": total_volume,
+                "total_volume_assigned": used_capacity,
+                "vehicles_assigned": used_vehicles,
+                "total_leftover_volume": sum(v["leftover_volume"] for v in used_vehicles)
+            })
+        else:
+            unassigned.append({
+                "store_id": store_id,
+                "request_id": request_id,
+                "total_volume_needed": total_volume,
+                "total_volume_assigned": used_capacity,
+                "vehicles_assigned": used_vehicles,
+                "error": "Insufficient total vehicle volume"
+            })
+
+    return {
+        "success": True,
+        "message": "Vehicle assignments completed",
+        "data": {
+            "assignments": assignments,
+            "unassigned_fulfillments": unassigned
+        }
+    }

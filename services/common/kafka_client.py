@@ -11,7 +11,9 @@ from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 from aiokafka.errors import KafkaError, KafkaTimeoutError
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
-
+from collections import defaultdict
+from services.common.database import db_manager
+import uuid
 logger = logging.getLogger(__name__)
 
 class KafkaManager:
@@ -34,7 +36,9 @@ class KafkaManager:
         self.producer: Optional[AIOKafkaProducer] = None
         self.consumers: Dict[str, AIOKafkaConsumer] = {}
         self.running_consumers: Dict[str, bool] = {}
-    
+        self.restock_messages: List[Dict[str, Any]] = []
+        self.fulfillment_messages: List[Dict[str, Any]] = []
+
     async def start_producer(self):
         """Initialize and start Kafka producer"""
         try:
@@ -209,12 +213,81 @@ class KafkaManager:
             await consumer.stop()
             logger.info(f"Stopped consumer for topic: {topic}")
     
+    
+    async def get_all_restock_messages(self) -> List[Dict[str, Any]]:
+        """Fetch all messages from the restock-requests topic"""
+        topic = self.TOPICS['RESTOCK_REQUESTS']
+        consumer = AIOKafkaConsumer(
+            topic,
+            bootstrap_servers=self.bootstrap_servers,
+            auto_offset_reset='earliest',
+            enable_auto_commit=False,
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')) if m else None,
+            key_deserializer=lambda k: k.decode('utf-8') if k else None,
+            group_id=None  # Read without group tracking
+        )
+
+        await consumer.start()
+        messages = []
+
+        try:
+            partitions = consumer.assignment()
+            if not partitions:
+                # Need to wait for partition assignment
+                await consumer.seek_to_beginning()
+                await asyncio.sleep(1)
+                partitions = consumer.assignment()
+
+            # Get beginning and end offsets for each partition
+            end_offsets = await consumer.end_offsets(partitions)
+            for tp in partitions:
+                await consumer.seek_to_beginning(tp)
+
+            while True:
+                msg_batch = await consumer.getmany(timeout_ms=1000)
+                empty = True
+
+                for tp, batch in msg_batch.items():
+                    for msg in batch:
+                        empty = False
+                        messages.append({
+                            "key": msg.key,
+                            "offset": msg.offset,
+                            "partition": msg.partition,
+                            "timestamp": msg.timestamp,
+                            "message": msg.value
+                        })
+
+                if empty:
+                    break
+
+        finally:
+            await consumer.stop()
+
+        return messages
+
+
+    async def start_restock_consumer(self):
+        """Start consumer for restock-requests topic"""
+        await self.start_consumer(self.TOPICS['RESTOCK_REQUESTS'], self.handle_restock_message)
+
     async def stop_consumer(self, topic: str):
         """Stop consumer for a specific topic"""
         self.running_consumers[topic] = False
         if topic in self.consumers:
             await self.consumers[topic].stop()
             del self.consumers[topic]
+
+    async def handle_restock_message(self, value: Dict[str, Any], key: str, offset: int, partition: int):
+        """Handle messages from restock-requests topic"""
+        logger.info(f"Consumed restock request message from partition {partition}, offset {offset}: {value}")
+        self.restock_messages.append({
+            "key": key,
+            "offset": offset,
+            "partition": partition,
+            "message": value
+        })
+
     
     async def stop_all_consumers(self):
         """Stop all running consumers"""
@@ -235,8 +308,65 @@ class KafkaManager:
         except Exception as e:
             logger.error(f"Kafka health check failed: {e}")
             return False
+    
+    async def process_restock_requests_and_generate_fulfillments(self):
+        """Aggregate restock requests and send fulfillment events"""
+        restock_messages = await self.get_all_restock_messages()
 
-# Global Kafka manager instance
+        store_requests = defaultdict(list)
+
+        for msg in restock_messages:
+            data = msg['message']
+            store_id = data['store_id']
+            product_id = data['product_id']
+
+            # 🔍 Inline product fetch + volume calculation
+            product = await db_manager.find_one("products", {"product_id": product_id})
+            if not product:
+                logger.warning(f"⚠️ Product {product_id} not found. Skipping.")
+                continue
+
+            dimensions = product.get("dimensions", {})
+            length = dimensions.get("length", 0)
+            width = dimensions.get("width", 0)
+            height = dimensions.get("height", 0)
+            volume = length * width * height
+
+            product_entry = {
+                "product_id": product_id,
+                "requested_quantity": data['requested_quantity'],
+                "priority": data['priority'],
+                "reason": data['reason'],
+                "volume": volume  # ✅ Volume in place of placeholder
+            }
+            store_requests[store_id].append(product_entry)
+
+        # Clear old list if re-used
+        self.fulfillment_messages = []
+
+        for store_id, products in store_requests.items():
+            fulfillment_id = f"FUL_{uuid.uuid4().hex[:8].upper()}"
+            fulfillment_event = {
+                "event_type": "fulfillment_request",
+                "request_id": fulfillment_id,
+                "store_id": store_id,
+                "status": "allocated",
+                "products": products,
+                "created_at": datetime.utcnow().isoformat()
+            }
+
+            self.fulfillment_messages.append(fulfillment_event)
+
+            await self.send_message(
+                self.TOPICS["FULFILLMENT_EVENTS"],
+                fulfillment_event,
+                key=store_id
+            )
+
+            print(f"✅ Fulfillment event sent for {store_id} with {len(products)} items")
+
+        # Simulate clearing processed restocks
+        self.restock_messages = []
 kafka_manager = KafkaManager()
 
 async def get_kafka_manager() -> KafkaManager:
@@ -248,6 +378,8 @@ async def initialize_kafka():
     try:
         await kafka_manager.create_topics()
         await kafka_manager.start_producer()
+        # ✅ Run consumer in background
+        asyncio.create_task(kafka_manager.start_restock_consumer())
         logger.info("Kafka initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize Kafka: {e}")
