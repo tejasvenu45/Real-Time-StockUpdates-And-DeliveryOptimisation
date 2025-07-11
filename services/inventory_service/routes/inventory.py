@@ -2,7 +2,13 @@
 Inventory Service API Routes
 REST API endpoints for inventory management
 """
+
+from math import radians, cos, sin, asin, sqrt
 import logging
+import math
+import os
+import httpx
+from dotenv import load_dotenv
 from typing import Dict, Any, List, Optional, Callable
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from datetime import datetime
@@ -17,7 +23,7 @@ from services.common.models import (
 from services.inventory_service.services.inventory_service import InventoryService
 
 logger = logging.getLogger(__name__)
-
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 router = APIRouter()
 
 def serialize_for_json(obj):
@@ -725,76 +731,77 @@ async def delete_vehicle(
 #             "unassigned_fulfillments": [a for a in assignments if a["vehicle_id"] is None]
 #         }
 #     }
+
 @router.get("/kafka/vehicle-assignments")
 async def assign_vehicles_to_fulfillment(service: InventoryService = Depends(get_inventory_service)):
-    """Assign multiple vehicles to fulfillments based on total volume needs"""
+    """Assign multiple vehicles to stores based on fulfillment request volume"""
     async with httpx.AsyncClient() as client:
-        # 1. Get available vehicles
+        # 1. Get all available vehicles
         vehicles_response = await client.get("http://localhost:8001/api/v1/vehicles?available_only=true")
         vehicles = vehicles_response.json()["data"]["items"]
 
-        # 2. Get fulfillment requests
+        # 2. Get fulfillment messages
         fulfillment_response = await client.get("http://localhost:8001/api/v1/kafka/fulfillment-messages")
         fulfillments = fulfillment_response.json()
 
-    # 3. Prepare vehicle pool
-    vehicle_pool = []
-    for v in vehicles:
-        vehicle_pool.append({
-            "vehicle_id": v["vehicle_id"],
-            "available_volume": v["available_volume_capacity"]
-        })
+    vehicle_pool = [{
+        "vehicle_id": v["vehicle_id"],
+        "available_volume": v["available_volume_capacity"],
+        "available_weight": v["available_weight_capacity"]
+    } for v in vehicles]
 
-    # Sort vehicles by descending volume
     vehicle_pool.sort(key=lambda v: v["available_volume"], reverse=True)
 
     assignments = []
-    unassigned = []
-
-    # 4. Loop through each fulfillment
     for fulfillment in fulfillments:
         store_id = fulfillment["store_id"]
         request_id = fulfillment["request_id"]
         products = fulfillment["products"]
 
-        # Calculate total volume needed
         total_volume = sum(p["volume"] * p["requested_quantity"] for p in products)
-
-        used_vehicles = []
-        used_capacity = 0.0
+        total_volume_assigned = 0.0
+        vehicles_assigned = []
 
         for vehicle in vehicle_pool:
-            if used_capacity >= total_volume:
+            if total_volume_assigned >= total_volume:
                 break
 
-            remaining = total_volume - used_capacity
-            take_volume = min(remaining, vehicle["available_volume"])
+            if vehicle["available_volume"] <= 0:
+                continue
 
-            if take_volume > 0:
-                used_vehicles.append({
+            assign_volume = min(vehicle["available_volume"], total_volume - total_volume_assigned)
+
+            if assign_volume > 0:
+                vehicle["available_volume"] -= assign_volume
+                total_volume_assigned += assign_volume
+
+                vehicles_assigned.append({
                     "vehicle_id": vehicle["vehicle_id"],
-                    "assigned_volume": take_volume,
-                    "leftover_volume": vehicle["available_volume"] - take_volume
+                    "assigned_volume": assign_volume,
+                    "leftover_volume": vehicle["available_volume"]
                 })
-                used_capacity += take_volume
-                vehicle["available_volume"] -= take_volume  # Update vehicle pool
 
-        if used_capacity >= total_volume:
+        # Calculate required vehicles based on best vehicle capacity
+        max_vehicle_capacity = max((v["available_volume_capacity"] for v in vehicles), default=0)
+        vehicles_required = math.ceil(total_volume / max_vehicle_capacity) if max_vehicle_capacity > 0 else None
+
+        if total_volume_assigned >= total_volume:
             assignments.append({
                 "store_id": store_id,
                 "request_id": request_id,
                 "total_volume_needed": total_volume,
-                "total_volume_assigned": used_capacity,
-                "vehicles_assigned": used_vehicles,
-                "total_leftover_volume": sum(v["leftover_volume"] for v in used_vehicles)
+                "total_volume_assigned": total_volume_assigned,
+                "vehicles_assigned": vehicles_assigned,
+                "vehicles_required": vehicles_required
             })
         else:
-            unassigned.append({
+            assignments.append({
                 "store_id": store_id,
                 "request_id": request_id,
                 "total_volume_needed": total_volume,
-                "total_volume_assigned": used_capacity,
-                "vehicles_assigned": used_vehicles,
+                "total_volume_assigned": total_volume_assigned,
+                "vehicles_assigned": vehicles_assigned,
+                "vehicles_required": vehicles_required,
                 "error": "Insufficient total vehicle volume"
             })
 
@@ -803,6 +810,196 @@ async def assign_vehicles_to_fulfillment(service: InventoryService = Depends(get
         "message": "Vehicle assignments completed",
         "data": {
             "assignments": assignments,
-            "unassigned_fulfillments": unassigned
+            "unassigned_fulfillments": [a for a in assignments if a["total_volume_assigned"] < a["total_volume_needed"]]
         }
     }
+
+# @router.get("/kafka/vehicle-assignments")
+# async def assign_vehicles_to_fulfillment(service: InventoryService = Depends(get_inventory_service)):
+#     """Assign multiple vehicles to fulfillments based on total volume needs"""
+#     async with httpx.AsyncClient() as client:
+#         # 1. Get available vehicles
+#         vehicles_response = await client.get("http://localhost:8001/api/v1/vehicles?available_only=true")
+#         vehicles = vehicles_response.json()["data"]["items"]
+
+#         # 2. Get fulfillment requests
+#         fulfillment_response = await client.get("http://localhost:8001/api/v1/kafka/fulfillment-messages")
+#         fulfillments = fulfillment_response.json()
+
+#     # 3. Prepare vehicle pool
+#     vehicle_pool = []
+#     for v in vehicles:
+#         vehicle_pool.append({
+#             "vehicle_id": v["vehicle_id"],
+#             "available_volume": v["available_volume_capacity"]
+#         })
+
+#     # Sort vehicles by descending volume
+#     vehicle_pool.sort(key=lambda v: v["available_volume"], reverse=True)
+
+#     assignments = []
+#     unassigned = []
+
+#     # 4. Loop through each fulfillment
+#     for fulfillment in fulfillments:
+#         store_id = fulfillment["store_id"]
+#         request_id = fulfillment["request_id"]
+#         products = fulfillment["products"]
+
+#         # Calculate total volume needed
+#         total_volume = sum(p["volume"] * p["requested_quantity"] for p in products)
+
+#         used_vehicles = []
+#         used_capacity = 0.0
+
+#         for vehicle in vehicle_pool:
+#             if used_capacity >= total_volume:
+#                 break
+
+#             remaining = total_volume - used_capacity
+#             take_volume = min(remaining, vehicle["available_volume"])
+
+#             if take_volume > 0:
+#                 used_vehicles.append({
+#                     "vehicle_id": vehicle["vehicle_id"],
+#                     "assigned_volume": take_volume,
+#                     "leftover_volume": vehicle["available_volume"] - take_volume
+#                 })
+#                 used_capacity += take_volume
+#                 vehicle["available_volume"] -= take_volume  # Update vehicle pool
+
+#         if used_capacity >= total_volume:
+#             assignments.append({
+#                 "store_id": store_id,
+#                 "request_id": request_id,
+#                 "total_volume_needed": total_volume,
+#                 "total_volume_assigned": used_capacity,
+#                 "vehicles_assigned": used_vehicles,
+#                 "total_leftover_volume": sum(v["leftover_volume"] for v in used_vehicles)
+#             })
+#         else:
+#             unassigned.append({
+#                 "store_id": store_id,
+#                 "request_id": request_id,
+#                 "total_volume_needed": total_volume,
+#                 "total_volume_assigned": used_capacity,
+#                 "vehicles_assigned": used_vehicles,
+#                 "error": "Insufficient total vehicle volume"
+#             })
+
+#     return {
+#         "success": True,
+#         "message": "Vehicle assignments completed",
+#         "data": {
+#             "assignments": assignments,
+#             "unassigned_fulfillments": unassigned
+#         }
+#     }
+
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    # Convert decimal degrees to radians
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    r = 6371  # Radius of earth in kilometers
+    return c * r
+@router.get("/ai/generate-prompt")
+async def generate_gemini_prompt(service: InventoryService = Depends(get_inventory_service)):
+    async with httpx.AsyncClient() as client:
+        # 1. Get restock requests to determine store_id and product_id
+        restock_resp = await client.get("http://localhost:8001/api/v1/restock-requests")
+        restock_items = restock_resp.json()["data"]["items"]
+        if not restock_items:
+            return {"error": "No restock requests found"}
+
+        restock_request = restock_items[0]  # Take the most recent/pending one
+        store_id = restock_request["store_id"]
+        product_id = restock_request["product_id"]
+
+        # 2. Get all stores and find nearby ones
+        stores_resp = await client.get("http://localhost:8001/api/v1/stores")
+        stores_data = stores_resp.json()["data"]["items"]
+        current_store = next((s for s in stores_data if s["store_id"] == store_id), None)
+        if not current_store:
+            return {"error": f"Store {store_id} not found"}
+
+        curr_coords = current_store["address"]["coordinates"]
+        nearby_stores = []
+        for store in stores_data:
+            if store["store_id"] != store_id:
+                coords = store["address"]["coordinates"]
+                distance = haversine(curr_coords["latitude"], curr_coords["longitude"], coords["latitude"], coords["longitude"])
+                if distance <= 10:
+                    nearby_stores.append({"store_id": store["store_id"], "distance_km": distance})
+
+        # 3. Get all products (just category and description)
+        products_resp = await client.get("http://localhost:8001/api/v1/products")
+        products = [
+            {"product_id": p["product_id"], "category": p["category"], "description": p["description"] or p["name"]}
+            for p in products_resp.json()["data"]["items"]
+        ]
+
+        # 4. Get inventory
+        inventory_resp = await client.get("http://localhost:8001/api/v1/inventory")
+        inventory_data = inventory_resp.json()["data"]["items"]
+        warehouse_stock = [
+            {"store_id": i["store_id"], "product_id": i["product_id"], "available_stock": i["available_stock"]}
+            for i in inventory_data
+        ]
+
+        # 5. Get vehicle assignments
+        assignment_resp = await client.get("http://localhost:8001/api/v1/kafka/vehicle-assignments")
+        assignments = assignment_resp.json()["data"]["assignments"]
+        target_assignment = next((a for a in assignments if a["store_id"] == store_id), None)
+
+        # 6. Build the Gemini prompt
+        prompt = f"""
+We are fulfilling a restock request for store_id: {store_id}, product_id: {product_id}.
+
+Nearby stores within 10km:
+{nearby_stores}
+
+Product catalog (category + summary):
+{products}
+
+Warehouse stock across all stores:
+{warehouse_stock}
+
+Vehicle Assignment Summary:
+{target_assignment}
+
+Based on this:
+1. Suggest how to utilize leftover vehicle space more efficiently (bundling similar items).
+2. Recommend if rerouting or sharing inventory with nearby stores is beneficial.
+3. Give actionable SCM strategies to reduce delivery rounds or bundle routes.
+4. Recommend additional products that can be sent with the current request if volume allows.
+        """
+
+        # 7. Send prompt to Gemini
+        gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "contents": [
+                {"parts": [{"text": prompt}]}
+            ]
+        }
+        gemini_resp = await client.post(gemini_url, headers=headers, params={"key": GEMINI_API_KEY}, json=payload)
+        gemini_data = gemini_resp.json()
+        suggestion = gemini_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "No response")
+
+    return {
+        "success": True,
+        "prompt": prompt.strip(),
+        "gemini_suggestion": suggestion.strip(),
+        "raw_response": gemini_data  # include full response for debugging
+    }
+
