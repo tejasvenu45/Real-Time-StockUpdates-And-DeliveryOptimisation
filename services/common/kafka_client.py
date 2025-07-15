@@ -26,6 +26,7 @@ class KafkaManager:
         'RESTOCK_REQUESTS': 'restock-requests',
         'FULFILLMENT_EVENTS': 'fulfillment-events',
         'DELIVERY_TRACKING': 'delivery-tracking',
+        'demandsense-data':'demandsense-data',
         'DEMAND_FORECASTING': 'demand-forecasting',
         'ALERT_NOTIFICATIONS': 'alert-notifications'
     }

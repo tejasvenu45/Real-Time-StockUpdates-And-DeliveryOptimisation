@@ -121,7 +121,10 @@ class InventoryService:
         if active_only:
             filter_dict["is_active"] = True
         return await self.db.count_documents("products", filter_dict)
-    
+    async def delete_product(self, product_id: str) -> bool:
+        """Delete a product by its ID"""
+        result = await self.db.delete_one("products", {"product_id": product_id})
+        return result.deleted_count > 0
     # =============================================================================
     # INVENTORY MANAGEMENT
     # =============================================================================

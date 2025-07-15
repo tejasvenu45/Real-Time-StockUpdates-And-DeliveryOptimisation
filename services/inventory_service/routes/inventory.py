@@ -23,7 +23,7 @@ from services.common.models import (
 from services.inventory_service.services.inventory_service import InventoryService
 
 logger = logging.getLogger(__name__)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = "AIzaSyC3xbpIEPibLdf_MPDLP5sE0ww9xXpIc-8"
 router = APIRouter()
 
 def serialize_for_json(obj):
@@ -230,6 +230,30 @@ async def get_product(
     except Exception as e:
         logger.error(f"Error retrieving product {product_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve product")
+
+@router.delete("/products/{product_id}", response_model=APIResponse)
+async def delete_product(
+    product_id: str,
+    service: InventoryService = Depends(get_inventory_service)
+):
+    """Delete a product by its ID"""
+    try:
+        deleted = await service.delete_product(product_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        return {
+            "success": True,
+            "message": "Product deleted successfully",
+            "data": {"product_id": product_id},
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting product {product_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete product")
+
 
 # =============================================================================
 # INVENTORY ENDPOINTS
@@ -909,6 +933,147 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2 * asin(sqrt(a))
     r = 6371  # Radius of earth in kilometers
     return c * r
+
+
+# @router.get("/ai/generate-prompt")
+# async def generate_gemini_prompt(service: InventoryService = Depends(get_inventory_service)):
+#      # 🔐 Replace with your actual key
+#     GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+
+#     async with httpx.AsyncClient() as client:
+#         try:
+#             # Step 1: Get latest restock request
+#             restock_resp = await client.get("http://localhost:8001/api/v1/restock-requests")
+#             restock_items = restock_resp.json()["data"]["items"]
+#             if not restock_items:
+#                 return {"success": False, "message": "No restock requests found"}
+            
+#             restock_request = restock_items[0]
+#             store_id = restock_request["store_id"]
+#             product_id = restock_request["product_id"]
+
+#             # Step 2: Get all stores and find nearby ones
+#             stores_resp = await client.get("http://localhost:8001/api/v1/stores")
+#             stores = stores_resp.json()["data"]["items"]
+#             current_store = next((s for s in stores if s["store_id"] == store_id), None)
+#             if not current_store:
+#                 return {"success": False, "message": f"Store {store_id} not found"}
+            
+#             curr_coords = current_store["address"]["coordinates"]
+#             nearby_stores = []
+#             for s in stores:
+#                 if s["store_id"] != store_id:
+#                     dist = haversine(curr_coords["latitude"], curr_coords["longitude"],
+#                                      s["address"]["coordinates"]["latitude"],
+#                                      s["address"]["coordinates"]["longitude"])
+#                     if dist <= 10:
+#                         nearby_stores.append({"store_id": s["store_id"], "distance_km": dist})
+
+#             # Step 3: Get products
+#             products_resp = await client.get("http://localhost:8001/api/v1/products")
+#             products = [
+#                 {
+#                     "product_id": p["product_id"],
+#                     "category": p["category"],
+#                     "description": p.get("description", p.get("name"))
+#                 }
+#                 for p in products_resp.json()["data"]["items"]
+#             ]
+
+#             # Step 4: Get inventory
+#             inventory_resp = await client.get("http://localhost:8001/api/v1/inventory")
+#             inventory_data = inventory_resp.json()["data"]["items"]
+#             warehouse_stock = [
+#                 {
+#                     "store_id": i["store_id"],
+#                     "product_id": i["product_id"],
+#                     "available_stock": i["available_stock"]
+#                 }
+#                 for i in inventory_data
+#             ]
+
+#             # Step 5: Get vehicle assignment
+#             assignment_resp = await client.get("http://localhost:8001/api/v1/kafka/vehicle-assignments")
+#             assignments = assignment_resp.json()["data"]["assignments"]
+#             target_assignment = next((a for a in assignments if a["store_id"] == store_id), None)
+
+#             # Step 6: Construct prompt
+#             prompt = f"""
+# We are fulfilling a restock request for store_id: {store_id}, product_id: {product_id}.
+
+# Nearby stores within 10km:
+# {nearby_stores}
+
+# Product catalog (category + summary):
+# {products}
+
+# Warehouse stock across all stores:
+# {warehouse_stock}
+
+# Vehicle Assignment Summary:
+# {target_assignment}
+
+# Based on this:
+# 1. Suggest how to utilize leftover vehicle space more efficiently (bundling similar items).
+# 2. Recommend if rerouting or sharing inventory with nearby stores is beneficial.
+# 3. Give actionable SCM strategies to reduce delivery rounds or bundle routes.
+# 4. Recommend additional products that can be sent with the current request if volume allows.
+#             """.strip()
+
+#             # Step 7: Gemini call
+#             payload = {
+#                 "contents": [
+#                     {
+#                         "parts": [
+#                             {
+#                                 "text": prompt
+#                             }
+#                         ]
+#                     }
+#                 ]
+#             }
+#             headers = {
+#                 "Content-Type": "application/json"
+                
+#             }
+            
+#             params={
+#                 "key":GEMINI_API_KEY
+#             }
+#             gemini_resp = await client.post(
+#                 GEMINI_URL,
+#                 headers=headers,
+#                 params=params,
+#                 json=payload
+#             )
+
+#             # Debug logging
+#             print("Gemini Status:", gemini_resp.status_code)
+#             print("Gemini Response:", gemini_resp.text)
+
+#             if gemini_resp.status_code != 200:
+#                 raise HTTPException(status_code=500, detail=f"Gemini AI request failed: {gemini_resp.text}")
+
+#             gemini_data = gemini_resp.json()
+#             suggestion = (
+#                 gemini_data.get("candidates", [{}])[0]
+#                 .get("content", {})
+#                 .get("parts", [{}])[0]
+#                 .get("text", "No meaningful response from Gemini.")
+#             )
+
+#             return {
+#                 "success": True,
+#                 "prompt": prompt,
+#                 "gemini_suggestion": suggestion.strip(),
+#                 "timestamp": datetime.utcnow().isoformat()
+#             }
+
+#         except Exception as e:
+#             import traceback
+#             print("Gemini Prompt Error:\n", traceback.format_exc())
+#             raise HTTPException(status_code=500, detail=f"Gemini AI request failed: {str(e)}")
+
 @router.get("/ai/generate-prompt")
 async def generate_gemini_prompt(service: InventoryService = Depends(get_inventory_service)):
     async with httpx.AsyncClient() as client:
@@ -992,14 +1157,15 @@ Based on this:
                 {"parts": [{"text": prompt}]}
             ]
         }
-        gemini_resp = await client.post(gemini_url, headers=headers, params={"key": GEMINI_API_KEY}, json=payload)
-        gemini_data = gemini_resp.json()
-        suggestion = gemini_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "No response")
+        # gemini_resp = await client.post(gemini_url, headers=headers, params={"key": GEMINI_API_KEY}, json=payload)
+        # gemini_data = gemini_resp.json()
+        # suggestion = gemini_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "No response")
 
     return {
+        "Gemini-key":GEMINI_API_KEY,
         "success": True,
         "prompt": prompt.strip(),
-        "gemini_suggestion": suggestion.strip(),
-        "raw_response": gemini_data  # include full response for debugging
+        # "gemini_suggestion": suggestion.strip(),
+        # "raw_response": gemini_data  # include full response for debugging
     }
 
