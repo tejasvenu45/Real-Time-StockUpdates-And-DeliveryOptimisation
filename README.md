@@ -2,6 +2,7 @@
 
 This project is a complete real-time retail logistics management system built using FastAPI, Kafka, MongoDB, and Gemini AI. It allows retail stores to maintain inventory, monitor low stock, process sales, and auto-optimize restock deliveries using vehicle capacity constraints and AI-generated SCM strategies.
 
+Youtube link explaining the project: https://www.youtube.com/watch?v=mMhBD4ASmDo
 ---
 
 ## 🚀 Tech Stack
